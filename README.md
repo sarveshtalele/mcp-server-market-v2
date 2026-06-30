@@ -9,7 +9,7 @@ server plugs straight into **Claude Code** and **Claude Desktop**.
 > ⚠️ All financial figures are **synthetic** (deterministically generated). Ticker
 > symbols and sectors are real SET names for realism only — this is not market data.
 
-![Architecture](assets/architecture.png)
+![Architecture](architecture.png)
 
 ---
 
