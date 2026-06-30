@@ -13,7 +13,7 @@ export default function Home() {
     <main className="app">
       <header className="chat-header">
         <div className="chat-header__brand">
-          <span className="chat-header__mark">SET</span>
+          <span className="chat-header__mark">STK</span>
           <span className="chat-header__name">
             Market Copilot <span>· live tool calls + streaming</span>
           </span>

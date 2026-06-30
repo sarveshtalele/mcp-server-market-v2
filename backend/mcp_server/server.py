@@ -14,7 +14,7 @@ from mcp.server.fastmcp import FastMCP
 from core.registry import discover_modules
 from mcp_server.api_client import DataAPIClient
 
-mcp = FastMCP("set-market")
+mcp = FastMCP("stock-exchange")
 api = DataAPIClient()
 
 # Register tools from every module that provides them.

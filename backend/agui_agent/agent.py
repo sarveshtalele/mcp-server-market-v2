@@ -3,7 +3,7 @@
 Bridges three things:
   * An OpenAI-compatible LLM (a LiteLLM proxy) for reasoning + streaming text
   * The MCP server (tools, via MCPToolClient)
-  * The AG-UI protocol (events the CopilotKit frontend understands)
+  * The AG-UI protocol (events the frontend understands)
 
 For each user run it emits:
   RUN_STARTED
@@ -42,10 +42,10 @@ from core.config import settings
 from mcp_client.session import MCPToolClient
 
 SYSTEM_PROMPT = (
-    "You are a Thailand SET (Stock Exchange of Thailand) market analyst assistant. "
+    "You are a stock-exchange market analyst assistant. "
     "Use the available tools to fetch company listings and filings and to compute "
     "financial ratios, growth and comparisons. Only report numbers returned by the "
-    "tools — never invent figures. All monetary values are in Thai Baht (THB). "
+    "tools — never invent figures. All monetary values are in US dollars (USD). "
     "After calling tools, summarise the findings for the user in clear prose; the "
     "raw tool data is rendered separately as interactive cards."
 )
@@ -53,7 +53,7 @@ SYSTEM_PROMPT = (
 MAX_TOOL_ROUNDS = 6
 
 
-class SETAgent:
+class ExchangeAgent:
     """Holds long-lived LLM + MCP clients and runs AG-UI streams."""
 
     def __init__(self) -> None:

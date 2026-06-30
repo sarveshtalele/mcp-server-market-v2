@@ -10,7 +10,7 @@ from core.database import Base
 
 
 class Company(Base):
-    """A security listed on the SET / mai board."""
+    """A listed company (e.g. on NYSE / NASDAQ)."""
 
     __tablename__ = "companies"
 
@@ -18,7 +18,7 @@ class Company(Base):
     company_name: Mapped[str] = mapped_column(String(160), nullable=False)
     sector: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     industry: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    market: Mapped[str] = mapped_column(String(8), nullable=False)  # SET | mai
+    market: Mapped[str] = mapped_column(String(8), nullable=False)  # NYSE | NASDAQ
     listing_date: Mapped[date] = mapped_column(Date, nullable=False)
 
     par_value: Mapped[float] = mapped_column(Float, nullable=False)

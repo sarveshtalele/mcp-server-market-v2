@@ -1,6 +1,6 @@
 "use client";
 
-import { Company, fmtCompactTHB, fmtNum, fmtPct } from "@/lib/types";
+import { Company, fmtCompactUSD, fmtNum, fmtPct } from "@/lib/types";
 import { Badge, Card, Stat } from "./Common";
 
 export function CompanyCard({ company }: { company: Company }) {
@@ -15,12 +15,12 @@ export function CompanyCard({ company }: { company: Company }) {
         <Badge text={company.is_active ? "Active" : "Suspended"} tone={company.is_active ? "pos" : "neg"} />
       </div>
       <div className="gen-grid">
-        <Stat label="Last price" value={`${fmtNum(company.last_price)} ฿`} />
-        <Stat label="Market cap" value={fmtCompactTHB(company.market_cap)} />
+        <Stat label="Last price" value={`$${fmtNum(company.last_price)}`} />
+        <Stat label="Market cap" value={fmtCompactUSD(company.market_cap)} />
         <Stat label="P/E" value={fmtNum(company.pe_ratio)} />
         <Stat label="P/B" value={fmtNum(company.pb_ratio)} />
         <Stat label="Dividend yield" value={fmtPct(company.dividend_yield)} />
-        <Stat label="Shares out." value={fmtCompactTHB(company.shares_outstanding).replace(" ฿", "")} />
+        <Stat label="Shares out." value={fmtCompactUSD(company.shares_outstanding).replace("$", "")} />
       </div>
     </Card>
   );

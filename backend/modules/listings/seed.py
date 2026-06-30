@@ -1,4 +1,9 @@
-"""Synthetic seed data for the listings module (real SET tickers, fake numbers)."""
+"""Synthetic seed data for the listings module.
+
+Uses a US-style exchange (NYSE / NASDAQ, USD) purely for flavour — every
+financial figure is randomly generated (deterministic via a fixed seed) and is
+NOT real market data.
+"""
 from __future__ import annotations
 
 import random
@@ -13,58 +18,65 @@ fake = Faker()
 
 # (symbol, name, sector, industry, board, price_band, net_margin_band, div_yield_band)
 UNIVERSE: list[tuple] = [
-    ("PTT", "PTT Public Company Limited", "Energy & Utilities", "Resources", "SET", (28, 42), (0.04, 0.09), (3.0, 5.5)),
-    ("PTTEP", "PTT Exploration and Production PCL", "Energy & Utilities", "Resources", "SET", (120, 175), (0.18, 0.30), (3.5, 6.0)),
-    ("GULF", "Gulf Development PCL", "Energy & Utilities", "Resources", "SET", (38, 58), (0.10, 0.18), (1.0, 2.5)),
-    ("EGCO", "Electricity Generating PCL", "Energy & Utilities", "Resources", "SET", (110, 160), (0.08, 0.16), (4.0, 6.5)),
-    ("BGRIM", "B.Grimm Power PCL", "Energy & Utilities", "Resources", "SET", (20, 34), (0.03, 0.08), (1.5, 3.0)),
-    ("RATCH", "Ratch Group PCL", "Energy & Utilities", "Resources", "SET", (28, 42), (0.10, 0.20), (4.5, 6.5)),
-    ("KBANK", "Kasikornbank PCL", "Financials", "Banking", "SET", (120, 165), (0.20, 0.32), (3.0, 5.0)),
-    ("SCB", "SCB X PCL", "Financials", "Banking", "SET", (95, 130), (0.22, 0.34), (4.0, 7.0)),
-    ("BBL", "Bangkok Bank PCL", "Financials", "Banking", "SET", (135, 185), (0.20, 0.30), (3.5, 5.5)),
-    ("KTB", "Krung Thai Bank PCL", "Financials", "Banking", "SET", (16, 24), (0.22, 0.30), (3.5, 5.5)),
-    ("KTC", "Krungthai Card PCL", "Financials", "Finance & Securities", "SET", (40, 58), (0.28, 0.40), (1.5, 3.0)),
-    ("MTC", "Muangthai Capital PCL", "Financials", "Finance & Securities", "SET", (38, 56), (0.25, 0.36), (0.5, 1.5)),
-    ("SAWAD", "Srisawad Corporation PCL", "Financials", "Finance & Securities", "SET", (36, 52), (0.28, 0.40), (2.5, 4.0)),
-    ("CPALL", "CP All PCL", "Services", "Commerce", "SET", (52, 72), (0.03, 0.06), (1.5, 3.0)),
-    ("CPN", "Central Pattana PCL", "Property & Construction", "Property Development", "SET", (55, 78), (0.25, 0.38), (2.0, 3.5)),
-    ("CRC", "Central Retail Corporation PCL", "Services", "Commerce", "SET", (30, 46), (0.03, 0.07), (1.5, 3.0)),
-    ("HMPRO", "Home Product Center PCL", "Services", "Commerce", "SET", (9, 14), (0.07, 0.11), (3.0, 4.5)),
-    ("GLOBAL", "Siam Global House PCL", "Services", "Commerce", "SET", (14, 22), (0.05, 0.09), (1.5, 3.0)),
-    ("ADVANC", "Advanced Info Service PCL", "Technology", "Information & Communication Tech", "SET", (190, 255), (0.14, 0.22), (3.5, 5.0)),
-    ("TRUE", "True Corporation PCL", "Technology", "Information & Communication Tech", "SET", (8, 14), (-0.05, 0.08), (0.0, 2.0)),
-    ("INTUCH", "Intouch Holdings PCL", "Technology", "Information & Communication Tech", "SET", (62, 88), (0.30, 0.45), (4.0, 6.0)),
-    ("DELTA", "Delta Electronics (Thailand) PCL", "Technology", "Electronic Components", "SET", (70, 110), (0.10, 0.16), (0.5, 1.5)),
-    ("KCE", "KCE Electronics PCL", "Technology", "Electronic Components", "SET", (35, 55), (0.10, 0.18), (2.0, 3.5)),
-    ("HANA", "Hana Microelectronics PCL", "Technology", "Electronic Components", "SET", (38, 56), (0.10, 0.17), (3.0, 4.5)),
-    ("CPF", "Charoen Pokphand Foods PCL", "Agro & Food Industry", "Food & Beverage", "SET", (20, 30), (0.01, 0.05), (2.5, 4.5)),
-    ("TU", "Thai Union Group PCL", "Agro & Food Industry", "Food & Beverage", "SET", (13, 20), (0.02, 0.06), (3.5, 5.5)),
-    ("MINT", "Minor International PCL", "Services", "Tourism & Leisure", "SET", (28, 42), (0.04, 0.10), (1.0, 2.5)),
-    ("OSP", "Osotspa PCL", "Agro & Food Industry", "Food & Beverage", "SET", (18, 28), (0.10, 0.16), (3.0, 4.5)),
-    ("CBG", "Carabao Group PCL", "Agro & Food Industry", "Food & Beverage", "SET", (60, 90), (0.12, 0.20), (1.5, 3.0)),
-    ("BDMS", "Bangkok Dusit Medical Services PCL", "Services", "Health Care Services", "SET", (24, 34), (0.14, 0.20), (1.5, 3.0)),
-    ("BH", "Bumrungrad Hospital PCL", "Services", "Health Care Services", "SET", (180, 260), (0.22, 0.32), (2.5, 4.0)),
-    ("SCC", "The Siam Cement PCL", "Property & Construction", "Construction Materials", "SET", (180, 260), (0.05, 0.11), (4.0, 6.5)),
-    ("LH", "Land and Houses PCL", "Property & Construction", "Property Development", "SET", (6, 10), (0.16, 0.26), (5.0, 8.0)),
-    ("AP", "AP (Thailand) PCL", "Property & Construction", "Property Development", "SET", (8, 13), (0.13, 0.20), (4.5, 7.0)),
-    ("AOT", "Airports of Thailand PCL", "Services", "Transportation & Logistics", "SET", (52, 74), (0.20, 0.34), (1.0, 2.5)),
-    ("YGG", "Yggdrazil Group PCL", "Technology", "Digital Content", "mai", (8, 16), (0.08, 0.16), (0.5, 2.0)),
-    ("ZIGA", "Ziga Innovation PCL", "Property & Construction", "Steel & Metals", "mai", (2, 5), (0.05, 0.12), (3.0, 5.0)),
+    # Technology
+    ("AAPL", "Apple Inc.", "Technology", "Consumer Electronics", "NASDAQ", (160, 200), (0.23, 0.27), (0.4, 0.7)),
+    ("MSFT", "Microsoft Corporation", "Technology", "Software", "NASDAQ", (320, 420), (0.33, 0.38), (0.7, 1.0)),
+    ("NVDA", "NVIDIA Corporation", "Technology", "Semiconductors", "NASDAQ", (400, 900), (0.30, 0.50), (0.0, 0.3)),
+    ("ORCL", "Oracle Corporation", "Technology", "Software", "NYSE", (90, 130), (0.18, 0.25), (1.2, 1.8)),
+    ("ADBE", "Adobe Inc.", "Technology", "Software", "NASDAQ", (450, 600), (0.25, 0.30), (0.0, 0.3)),
+    ("CRM", "Salesforce Inc.", "Technology", "Software", "NYSE", (180, 280), (0.05, 0.15), (0.0, 0.6)),
+    ("INTC", "Intel Corporation", "Technology", "Semiconductors", "NASDAQ", (25, 45), (0.05, 0.20), (1.0, 2.5)),
+    # Communication Services
+    ("GOOGL", "Alphabet Inc.", "Communication Services", "Internet Content", "NASDAQ", (120, 160), (0.20, 0.26), (0.0, 0.5)),
+    ("META", "Meta Platforms Inc.", "Communication Services", "Internet Content", "NASDAQ", (250, 400), (0.25, 0.34), (0.0, 0.5)),
+    ("DIS", "The Walt Disney Company", "Communication Services", "Entertainment", "NYSE", (80, 120), (0.05, 0.12), (0.0, 1.0)),
+    ("NFLX", "Netflix Inc.", "Communication Services", "Entertainment", "NASDAQ", (350, 550), (0.15, 0.22), (0.0, 0.3)),
+    ("T", "AT&T Inc.", "Communication Services", "Telecom", "NYSE", (14, 22), (0.10, 0.16), (5.0, 7.0)),
+    ("VZ", "Verizon Communications Inc.", "Communication Services", "Telecom", "NYSE", (30, 45), (0.12, 0.18), (5.5, 7.5)),
+    # Financials
+    ("JPM", "JPMorgan Chase & Co.", "Financials", "Banks", "NYSE", (140, 200), (0.28, 0.34), (2.2, 3.0)),
+    ("BAC", "Bank of America Corporation", "Financials", "Banks", "NYSE", (28, 42), (0.25, 0.30), (2.2, 3.0)),
+    ("WFC", "Wells Fargo & Company", "Financials", "Banks", "NYSE", (40, 60), (0.22, 0.28), (2.0, 3.2)),
+    ("GS", "The Goldman Sachs Group Inc.", "Financials", "Capital Markets", "NYSE", (330, 430), (0.20, 0.28), (2.0, 3.0)),
+    ("MS", "Morgan Stanley", "Financials", "Capital Markets", "NYSE", (80, 110), (0.18, 0.25), (3.0, 4.0)),
+    ("AXP", "American Express Company", "Financials", "Consumer Finance", "NYSE", (150, 230), (0.15, 0.20), (1.0, 1.6)),
+    ("C", "Citigroup Inc.", "Financials", "Banks", "NYSE", (45, 70), (0.15, 0.22), (3.0, 4.2)),
+    # Energy
+    ("XOM", "Exxon Mobil Corporation", "Energy", "Oil & Gas Integrated", "NYSE", (95, 120), (0.08, 0.14), (3.0, 4.0)),
+    ("CVX", "Chevron Corporation", "Energy", "Oil & Gas Integrated", "NYSE", (140, 175), (0.08, 0.13), (3.5, 4.5)),
+    ("COP", "ConocoPhillips", "Energy", "Oil & Gas E&P", "NYSE", (95, 130), (0.15, 0.25), (1.5, 2.5)),
+    ("SLB", "Schlumberger Limited", "Energy", "Oil & Gas Equipment", "NYSE", (40, 60), (0.10, 0.16), (1.8, 2.6)),
+    # Healthcare
+    ("JNJ", "Johnson & Johnson", "Healthcare", "Pharmaceuticals", "NYSE", (150, 180), (0.18, 0.24), (2.7, 3.4)),
+    ("PFE", "Pfizer Inc.", "Healthcare", "Pharmaceuticals", "NYSE", (28, 45), (0.20, 0.30), (3.5, 5.0)),
+    ("UNH", "UnitedHealth Group Incorporated", "Healthcare", "Healthcare Plans", "NYSE", (450, 560), (0.06, 0.09), (1.2, 1.8)),
+    ("ABBV", "AbbVie Inc.", "Healthcare", "Pharmaceuticals", "NYSE", (140, 180), (0.20, 0.28), (3.5, 4.5)),
+    ("MRK", "Merck & Co. Inc.", "Healthcare", "Pharmaceuticals", "NYSE", (100, 130), (0.20, 0.28), (2.4, 3.2)),
+    # Consumer
+    ("WMT", "Walmart Inc.", "Consumer Staples", "Discount Stores", "NYSE", (50, 70), (0.02, 0.04), (1.3, 1.8)),
+    ("KO", "The Coca-Cola Company", "Consumer Staples", "Beverages", "NYSE", (55, 65), (0.22, 0.27), (2.8, 3.4)),
+    ("PEP", "PepsiCo Inc.", "Consumer Staples", "Beverages", "NASDAQ", (160, 190), (0.10, 0.14), (2.6, 3.2)),
+    ("PG", "The Procter & Gamble Company", "Consumer Staples", "Household Products", "NYSE", (140, 165), (0.18, 0.22), (2.3, 2.9)),
+    ("COST", "Costco Wholesale Corporation", "Consumer Staples", "Discount Stores", "NASDAQ", (550, 720), (0.02, 0.04), (0.5, 0.9)),
+    ("MCD", "McDonald's Corporation", "Consumer Discretionary", "Restaurants", "NYSE", (260, 310), (0.30, 0.36), (2.0, 2.6)),
+    ("NKE", "NIKE Inc.", "Consumer Discretionary", "Footwear & Apparel", "NYSE", (90, 130), (0.10, 0.14), (1.0, 1.6)),
+    ("HD", "The Home Depot Inc.", "Consumer Discretionary", "Home Improvement", "NYSE", (290, 360), (0.09, 0.12), (2.2, 2.8)),
+    # Industrials
+    ("BA", "The Boeing Company", "Industrials", "Aerospace & Defense", "NYSE", (180, 240), (-0.05, 0.06), (0.0, 1.0)),
+    ("CAT", "Caterpillar Inc.", "Industrials", "Heavy Machinery", "NYSE", (220, 300), (0.13, 0.18), (1.6, 2.2)),
+    ("GE", "General Electric Company", "Industrials", "Specialty Industrial", "NYSE", (90, 140), (0.05, 0.12), (0.3, 0.8)),
+    ("HON", "Honeywell International Inc.", "Industrials", "Conglomerates", "NASDAQ", (180, 220), (0.14, 0.18), (1.8, 2.4)),
 ]
 
 
 def seed(db) -> None:
-    """Insert companies if none exist. Net-margin band is stashed for filings."""
+    """Insert companies if none exist."""
     if db.scalar(select(Company).limit(1)) is not None:
         return
     for row in UNIVERSE:
         symbol, name, sector, industry, board, price_band, _margin, dy_band = row
         last_price = round(random.uniform(*price_band), 2)
-        shares = (
-            random.randint(150_000_000, 700_000_000)
-            if board == "mai"
-            else random.randint(800_000_000, 9_000_000_000)
-        )
+        shares = random.randint(300_000_000, 16_000_000_000)
         db.add(
             Company(
                 symbol=symbol,
@@ -72,13 +84,13 @@ def seed(db) -> None:
                 sector=sector,
                 industry=industry,
                 market=board,
-                listing_date=fake.date_between(date(1995, 1, 1), date(2018, 12, 31)),
-                par_value=round(random.choice([0.5, 1.0, 1.0, 5.0]), 2),
+                listing_date=fake.date_between(date(1970, 1, 1), date(2015, 12, 31)),
+                par_value=round(random.choice([0.01, 0.001, 0.1, 1.0]), 3),
                 shares_outstanding=shares,
                 last_price=last_price,
                 market_cap=round(last_price * shares, 2),
-                pe_ratio=round(random.uniform(8, 28), 2),
-                pb_ratio=round(random.uniform(0.7, 4.5), 2),
+                pe_ratio=round(random.uniform(8, 40), 2),
+                pb_ratio=round(random.uniform(0.7, 12.0), 2),
                 dividend_yield=round(random.uniform(*dy_band), 2),
                 is_active=True,
             )

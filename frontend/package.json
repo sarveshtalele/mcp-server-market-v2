@@ -1,8 +1,8 @@
 {
-  "name": "set-market-copilot",
+  "name": "stock-exchange-copilot",
   "version": "1.0.0",
   "private": true,
-  "description": "Custom AG-UI streaming chatbot for the Thailand SET market PoC",
+  "description": "Custom AG-UI streaming chatbot for a stock exchange PoC",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",

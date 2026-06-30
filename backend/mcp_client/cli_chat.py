@@ -19,10 +19,10 @@ from core.config import settings
 from mcp_client.session import MCPToolClient
 
 SYSTEM_PROMPT = (
-    "You are a Thailand SET market analyst assistant. "
+    "You are a stock-exchange market analyst assistant. "
     "Use the provided tools to fetch company listings and filings and to run "
     "financial calculations. Only state numbers returned by the tools — never "
-    "invent figures. All monetary values are in Thai Baht (THB). "
+    "invent figures. All monetary values are in US dollars (USD). "
     "Present results clearly and concisely."
 )
 MAX_TOOL_ROUNDS = 6
@@ -81,7 +81,7 @@ async def run_turn(
 
 
 async def main() -> None:
-    # Windows consoles default to cp1252 and choke on ฿ (THB) etc.
+    # Windows consoles default to cp1252 and choke on non-ASCII characters etc.
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, ValueError):
@@ -97,7 +97,7 @@ async def main() -> None:
     await client.connect()
     print(f"Connected to MCP server. Tools: {', '.join(client.tool_names)}")
     print(f"Model: {settings.llm_model}")
-    print("Ask about SET companies (type 'exit' to quit).\n")
+    print("Ask about companies (type 'exit' to quit).\n")
 
     tools = client.openai_tools()
     messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]

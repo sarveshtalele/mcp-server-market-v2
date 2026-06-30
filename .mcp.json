@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "set-market": {
+    "stock-exchange": {
       "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
       "args": ["-m", "mcp_server.server"],
       "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",

@@ -18,10 +18,10 @@ interface Msg {
 }
 
 const SUGGESTIONS = [
-  "Show PTT's company profile",
-  "Compare KBANK, SCB and BBL",
-  "PTTEP financial ratios",
-  "ADVANC revenue trend",
+  "Show AAPL's company profile",
+  "Compare JPM, BAC and WFC",
+  "MSFT financial ratios",
+  "NVDA revenue trend",
   "Top 5 Financials by market cap",
 ];
 
@@ -150,9 +150,9 @@ export function ChatClaude() {
           {empty && (
             <div className="cc__welcome">
               <div className="cc__logo">◆</div>
-              <h2>SET Market Analyst</h2>
+              <h2>Stock Exchange Analyst</h2>
               <p>
-                Ask about companies on the Stock Exchange of Thailand — profiles,
+                Ask about listed companies — profiles,
                 filings, ratios, growth, comparisons and sector rankings.
               </p>
               <div className="cc__suggest">
@@ -210,7 +210,7 @@ export function ChatClaude() {
           <textarea
             className="cc__input"
             value={input}
-            placeholder="Ask about a SET company…"
+            placeholder="Ask about a company…"
             rows={1}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -236,7 +236,7 @@ export function ChatClaude() {
           )}
         </div>
         <div className="cc__hint">
-          Streams live · shows tool calls · synthetic SET data
+          Streams live · shows tool calls · synthetic data
         </div>
       </div>
     </div>

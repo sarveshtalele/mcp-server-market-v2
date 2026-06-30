@@ -1,13 +1,12 @@
-# Thailand SET Market — MCP + AG-UI PoC
+# Stock Exchange — MCP + AG-UI PoC
 
-End-to-end proof of concept: synthetic **Stock Exchange of Thailand (SET)** market
-data, served by a FastAPI **Data API**, exposed to LLMs through an **MCP server**,
+End-to-end proof of concept: synthetic **stock-exchange** market data, served by a FastAPI **Data API**, exposed to LLMs through an **MCP server**,
 and consumed by two chatbots — a terminal client and a streaming **AG-UI** web app
 (custom Claude-style UI with live tool-call chips + generative cards). The same MCP
 server plugs straight into **Claude Code** and **Claude Desktop**.
 
 > ⚠️ All financial figures are **synthetic** (deterministically generated). Ticker
-> symbols and sectors are real SET names for realism only — this is not market data.
+> symbols and sectors are real ticker names for realism only — this is not market data.
 
 ![Architecture](architecture.png)
 
@@ -17,7 +16,7 @@ server plugs straight into **Claude Code** and **Claude Desktop**.
 
 ```
                        ┌──────────────────────────────┐
-                       │  SQLite (set_market.db)       │
+                       │  SQLite (stock_market.db)       │
                        │  companies · filings (ORM)    │
                        └───────────────┬───────────────┘
                                        │ SQLAlchemy
@@ -135,7 +134,7 @@ cd ..
 run_all.bat
 ```
 Opens three windows — **Data API :8000**, **AG-UI agent :8001**, **frontend :3000** —
-then browse to **http://localhost:3000**. Ask *"Compare KBANK, SCB and BBL"* and watch
+then browse to **http://localhost:3000**. Ask *"Compare JPM, BAC and WFC"* and watch
 the tool chips spin, cards drop in, and the answer stream.
 
 ### Run pieces manually (equivalent commands)
@@ -166,7 +165,7 @@ command above) — the MCP server fetches from it.
 
 ### Claude Code
 `.mcp.json` is already at the repo root. From this folder run `claude`, approve the
-`set-market` server, then ask Claude about SET companies. Adjust the `cwd`/`command`
+`stock-exchange` server, then ask Claude about companies. Adjust the `cwd`/`command`
 paths if your layout differs (use the venv python for reliability).
 
 ### Claude Desktop
@@ -181,7 +180,7 @@ Merge `claude_desktop_config.example.json` into
 | Tool | Type | Description |
 |------|------|-------------|
 | `get_company` | fetch | Listing details for one ticker |
-| `search_companies` | fetch | Filter by sector / board (SET\|mai) |
+| `search_companies` | fetch | Filter by sector / board (NYSE|NASDAQ)|(NYSE|NASDAQ) |
 | `list_sectors` | fetch | Sectors with company counts |
 | `get_filings` | fetch | Filing history (Quarterly\|Annual) — renders as a revenue/profit **trend chart** |
 | `get_latest_filing` | fetch | Most recent filing |

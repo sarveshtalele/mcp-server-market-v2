@@ -1,6 +1,6 @@
 "use client";
 
-import { Growth, fmtPct, fmtTHB } from "@/lib/types";
+import { Growth, fmtPct, fmtUSD } from "@/lib/types";
 import { Badge, Card, Stat, pctTone } from "./Common";
 
 export function GrowthCard({ growth }: { growth: Growth }) {
@@ -18,8 +18,8 @@ export function GrowthCard({ growth }: { growth: Growth }) {
       accent="#2f8f5b"
     >
       <div className="gen-grid">
-        <Stat label="Revenue" value={fmtTHB(growth.latest_revenue)} />
-        <Stat label="Net profit" value={fmtTHB(growth.latest_net_profit)} />
+        <Stat label="Revenue" value={fmtUSD(growth.latest_revenue)} />
+        <Stat label="Net profit" value={fmtUSD(growth.latest_net_profit)} />
       </div>
       <div className="gen-row gen-row--wrap">
         <Badge text={`Rev QoQ ${fmtPct(growth.revenue_qoq_pct)}`} tone={pctTone(growth.revenue_qoq_pct)} />

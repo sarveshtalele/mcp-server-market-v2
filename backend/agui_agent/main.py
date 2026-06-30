@@ -15,10 +15,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from agui_agent.agent import SETAgent
+from agui_agent.agent import ExchangeAgent
 from core.config import settings
 
-agent = SETAgent()
+agent = ExchangeAgent()
 
 
 @asynccontextmanager
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     await agent.shutdown()
 
 
-app = FastAPI(title="SET Market AG-UI Agent", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Stock Exchange AG-UI Agent", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

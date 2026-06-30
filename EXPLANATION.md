@@ -1,4 +1,4 @@
-# Project Explanation — Thailand SET Market MCP Stack
+# Project Explanation — Stock Exchange MCP Stack
 
 This document explains the **whole project end to end** and what **every file**
 does. Read the [Big picture](#1-big-picture) first, then use the
@@ -8,7 +8,7 @@ does. Read the [Big picture](#1-big-picture) first, then use the
 
 ## 1. Big picture
 
-A proof-of-concept that turns synthetic **Stock Exchange of Thailand (SET)** data
+A proof-of-concept that turns synthetic **stock-exchange** data
 into an AI chatbot, with five layers:
 
 1. **Database** — SQLite, accessed through SQLAlchemy ORM.
@@ -22,7 +22,7 @@ self-contained plugin auto-discovered by a registry. Adding a domain wires it in
 the API, the MCP server, and the seeder with no edits to shared code.
 
 > All financial numbers are **synthetic** (deterministically generated). Ticker
-> symbols/sectors are real SET names for realism only.
+> symbols/sectors are real ticker names for realism only.
 
 ---
 
@@ -30,7 +30,7 @@ the API, the MCP server, and the seeder with no edits to shared code.
 
 ```
                         ┌─────────────────────────────┐
-                        │  SQLite: set_market.db       │
+                        │  SQLite: stock_market.db       │
                         │  tables: companies, filings  │
                         └───────────────┬──────────────┘
                                         │ SQLAlchemy ORM (repositories)
@@ -63,7 +63,7 @@ the API, the MCP server, and the seeder with no edits to shared code.
 3. The agent (an **MCP client**) asks the LLM (LiteLLM proxy) what to do; the LLM
    picks a **tool** by name.
 4. The agent calls that tool on the **MCP server** over stdio.
-5. The tool does an HTTP GET to the **Data API** (e.g. `/listings/companies/PTT`).
+5. The tool does an HTTP GET to the **Data API** (e.g. `/listings/companies/AAPL`).
 6. The API queries **SQLite** via a repository and returns JSON.
 7. The agent streams **AG-UI events** back; the chat shows a live **tool-call chip**
    (running → done), renders the result as a **card**, and streams the answer text
@@ -96,7 +96,7 @@ the API, the MCP server, and the seeder with no edits to shared code.
 ┌──────────────────────────── BACKEND (Python) ──────────────────────────────────┐
 │  agui_agent/  (FastAPI :8001)                                                    │
 │      main.py  ── POST /agui  -> StreamingResponse                                │
-│      agent.py ── SETAgent: OpenAI tool-loop  <->  AG-UI events                   │
+│      agent.py ── ExchangeAgent: OpenAI tool-loop  <->  AG-UI events                   │
 │                      │ (OpenAI SDK)             │ (MCP stdio via MCPToolClient)  │
 │                      ▼                          ▼                                │
 │              LiteLLM proxy (LLM)        mcp_server/ (FastMCP, stdio)             │
@@ -170,7 +170,7 @@ One discovery function, three consumers. Add a module → it shows up in all thr
 
 ```
 LLM picks TOOL by name/description        TOOL carries its ENDPOINT path
-   "compare KBANK…"  ─► compare_companies     ─► GET /listings/companies/{s}
+   "compare JPM…"  ─► compare_companies     ─► GET /listings/companies/{s}
                                                ─► GET /filings/{s}/latest
    one base URL (http://127.0.0.1:8000) + path  ─► FastAPI routes path to module
 ```
@@ -237,7 +237,7 @@ tools + seed) or **tool-only** (`analytics`: just tools over existing APIs).
 | `README.md` | Setup + run guide, prerequisites, troubleshooting. |
 | `EXPLANATION.md` | This document. |
 | `.gitignore` | Ignores venv, node_modules, `.next`, `*.db`, `.env`, etc. |
-| `.mcp.json` | Claude **Code** project MCP config — registers `set-market`. |
+| `.mcp.json` | Claude **Code** project MCP config — registers `stock-exchange`. |
 | `claude_desktop_config.example.json` | Sample block to merge into Claude **Desktop** config. |
 | `setup.bat` | One-time backend setup: venv (uv or pip) + install + seed. |
 | `run_all.bat` | Boots Data API + AG-UI agent + frontend, each in its own window. |
@@ -280,7 +280,7 @@ The shared framework. Knows nothing about specific domains.
 | `repository.py` | All company DB queries: `list_companies`, `get_company`, `list_sectors`, `count`. |
 | `router.py` | FastAPI router at `/listings`: `GET /companies`, `/companies/{symbol}`, `/sectors`. |
 | `tools.py` | Declares `ENDPOINTS` (3 `EndpointTool`s) → MCP tools `get_company`, `search_companies`, `list_sectors`. |
-| `seed.py` | The `UNIVERSE` of 37 real SET tickers (with price/margin/yield bands) and `seed(db)` that inserts synthetic company rows. Margin bands are reused by the filings module. |
+| `seed.py` | The `UNIVERSE` of 41 real ticker symbols (with price/margin/yield bands) and `seed(db)` that inserts synthetic company rows. Margin bands are reused by the filings module. |
 
 **`modules/filings/` — financial filings (table `filings`)**
 
@@ -314,7 +314,7 @@ The shared framework. Knows nothing about specific domains.
 |---|---|
 | `mcp_server/__init__.py` | Package marker. |
 | `mcp_server/api_client.py` | `DataAPIClient` — a generic async `get(path, params)` over the single Data API base URL, plus `DataAPIError`. Module tools call this; no per-module client code. |
-| `mcp_server/server.py` | Creates the `FastMCP("set-market")` instance and a `DataAPIClient`, then **registers every module's tools** from the registry. `mcp.run()` serves over stdio (the form Claude Desktop/Code launch). |
+| `mcp_server/server.py` | Creates the `FastMCP("stock-exchange")` instance and a `DataAPIClient`, then **registers every module's tools** from the registry. `mcp.run()` serves over stdio (the form Claude Desktop/Code launch). |
 
 ### 4.6 Backend — MCP clients (`backend/mcp_client/`)
 
@@ -322,7 +322,7 @@ The shared framework. Knows nothing about specific domains.
 |---|---|
 | `mcp_client/__init__.py` | Package marker. |
 | `mcp_client/session.py` | `MCPToolClient` — spawns the MCP server as a stdio subprocess, lists its tools, adapts them to the OpenAI function-calling schema (`openai_tools()`), and `call_tool()` (reassembles FastMCP's multi-block list results into clean JSON; hardened teardown). Shared by both chatbots. |
-| `mcp_client/cli_chat.py` | A terminal chatbot: connects via `MCPToolClient`, runs an OpenAI tool-use loop against the LiteLLM proxy, prints answers. Forces UTF-8 stdout (for the `฿` symbol on Windows). |
+| `mcp_client/cli_chat.py` | A terminal chatbot: connects via `MCPToolClient`, runs an OpenAI tool-use loop against the LiteLLM proxy, prints answers. Forces UTF-8 stdout (for the `$` symbol on Windows). |
 
 ### 4.7 Backend — AG-UI agent (`backend/agui_agent/`)
 
@@ -331,7 +331,7 @@ The bridge that makes the web chatbot possible.
 | File | Purpose |
 |---|---|
 | `agui_agent/__init__.py` | Package marker. |
-| `agui_agent/agent.py` | `SETAgent`: holds the OpenAI client (→ LiteLLM proxy) and an `MCPToolClient`. For each run it streams an OpenAI tool-use loop and emits **AG-UI events** — `RUN_STARTED`, `TEXT_MESSAGE_*` (streamed text), `TOOL_CALL_*` (so the frontend renders cards), `RUN_FINISHED`/`RUN_ERROR`. The proxy's Claude models are reasoning models, so it streams only `delta.content` (not `reasoning_content`). |
+| `agui_agent/agent.py` | `ExchangeAgent`: holds the OpenAI client (→ LiteLLM proxy) and an `MCPToolClient`. For each run it streams an OpenAI tool-use loop and emits **AG-UI events** — `RUN_STARTED`, `TEXT_MESSAGE_*` (streamed text), `TOOL_CALL_*` (so the frontend renders cards), `RUN_FINISHED`/`RUN_ERROR`. The proxy's Claude models are reasoning models, so it streams only `delta.content` (not `reasoning_content`). |
 | `agui_agent/main.py` | FastAPI app exposing `POST /agui` (consumed by CopilotKit's `HttpAgent`) as an SSE stream, plus `/health`. Connects the MCP client on startup. Run: `uvicorn agui_agent.main:app --port 8001`. |
 
 ### 4.8 Backend — config/deps
@@ -365,7 +365,7 @@ repo as a working alternative but are not used by the current page.
 | **`components/chat/ToolChip.tsx`** | Live "using a tool" pill (spinner → ✓), shows the tool name + args. |
 | **`components/chat/Markdown.tsx`** | Tiny dependency-free markdown renderer for streamed text (headings, lists, bold, code). |
 | **`components/chat/toolCards.tsx`** | Maps a tool name + JSON result → the right card; plus friendly tool labels. |
-| `lib/types.ts` | TS types mirroring tool JSON (Company, Filing, Ratios, …) + formatters (`fmtCompactTHB` → `1.74 tn ฿`, `fmtPct`, `parseResult`). |
+| `lib/types.ts` | TS types mirroring tool JSON (Company, Filing, Ratios, …) + formatters (`fmtCompactUSD` → `1.74 tn $`, `fmtPct`, `parseResult`). |
 | `app/api/copilotkit/route.ts` | *(legacy)* CopilotKit runtime endpoint → AG-UI `HttpAgent`. |
 | `components/Providers.tsx` | *(legacy)* `<CopilotKit>` provider. |
 | `components/ChatApp.tsx` | *(legacy)* CopilotChat-based chat surface. |
@@ -402,7 +402,7 @@ run_all.bat          # Data API :8000 + agent :8001 + web :3000
 - Web chatbot: http://localhost:3000
 - API docs: http://127.0.0.1:8000/docs
 - Terminal chatbot: `run_cli_chatbot.bat`
-- Claude Desktop/Code: start `run_data_api.bat`, then the `set-market` server
+- Claude Desktop/Code: start `run_data_api.bat`, then the `stock-exchange` server
   (already in `.mcp.json` / your `settings.json`).
 
 ## 6. How to extend

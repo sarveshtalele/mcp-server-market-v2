@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     )
 
     # --- Database ---------------------------------------------------------
-    database_url: str = f"sqlite:///{(BACKEND_ROOT / 'set_market.db').as_posix()}"
+    database_url: str = f"sqlite:///{(BACKEND_ROOT / 'stock_market.db').as_posix()}"
 
     # --- Data API ---------------------------------------------------------
     data_api_host: str = "127.0.0.1"
@@ -58,8 +58,8 @@ class Settings(BaseSettings):
             return None
         return self.llm_base_url.rstrip("/") + "/v1"
 
-    # Currency label for synthetic data (Thai Baht).
-    currency: str = "THB"
+    # Currency label for synthetic data.
+    currency: str = "USD"
 
 
 @lru_cache

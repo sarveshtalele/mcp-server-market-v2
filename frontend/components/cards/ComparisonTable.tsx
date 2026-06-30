@@ -1,6 +1,6 @@
 "use client";
 
-import { Comparison, fmtCompactTHB, fmtNum, fmtPct } from "@/lib/types";
+import { Comparison, fmtCompactUSD, fmtNum, fmtPct } from "@/lib/types";
 import { Card } from "./Common";
 
 export function ComparisonTable({ data }: { data: Comparison }) {
@@ -23,7 +23,7 @@ export function ComparisonTable({ data }: { data: Comparison }) {
           {data.companies.map((c) => (
             <tr key={c.symbol}>
               <td className="mono">{c.symbol}</td>
-              <td className="num nowrap">{fmtCompactTHB(c.market_cap)}</td>
+              <td className="num nowrap">{fmtCompactUSD(c.market_cap)}</td>
               <td className="num">{fmtNum(c.pe_ratio)}</td>
               <td className="num">{fmtNum(c.pb_ratio)}</td>
               <td className="num">{fmtPct(c.dividend_yield_pct)}</td>

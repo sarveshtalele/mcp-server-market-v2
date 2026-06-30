@@ -42,7 +42,7 @@ def seed(reset: bool = False) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Seed the SET market database.")
+    parser = argparse.ArgumentParser(description="Seed the stock-exchange database.")
     parser.add_argument("--reset", action="store_true", help="Drop and rebuild tables.")
     args = parser.parse_args()
     seed(reset=args.reset)

@@ -22,7 +22,7 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
 
 class MCPToolClient:
-    """Manages a stdio connection to the SET market MCP server."""
+    """Manages a stdio connection to the stock-exchange MCP server."""
 
     def __init__(self) -> None:
         self._session: ClientSession | None = None

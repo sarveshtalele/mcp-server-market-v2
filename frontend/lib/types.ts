@@ -92,16 +92,16 @@ export function parseResult<T>(result: unknown): T | null {
   return null;
 }
 
-export const fmtTHB = (n: number): string =>
-  new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n) + " ฿";
+export const fmtUSD = (n: number): string =>
+  "$" + new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
 
-// Compact THB for large amounts: 1.74 tn ฿ / 281.78 bn ฿ / 644.00 mn ฿
-export const fmtCompactTHB = (n: number): string => {
+// Compact USD for large amounts: $1.74 tn / $281.78 bn / $644.00 mn
+export const fmtCompactUSD = (n: number): string => {
   const a = Math.abs(n);
-  if (a >= 1e12) return `${(n / 1e12).toFixed(2)} tn ฿`;
-  if (a >= 1e9) return `${(n / 1e9).toFixed(2)} bn ฿`;
-  if (a >= 1e6) return `${(n / 1e6).toFixed(2)} mn ฿`;
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n) + " ฿";
+  if (a >= 1e12) return `$${(n / 1e12).toFixed(2)} tn`;
+  if (a >= 1e9) return `$${(n / 1e9).toFixed(2)} bn`;
+  if (a >= 1e6) return `$${(n / 1e6).toFixed(2)} mn`;
+  return "$" + new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
 };
 
 export const fmtPct = (n: number | null | undefined): string =>

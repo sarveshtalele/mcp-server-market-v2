@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SET Market Copilot",
-  description: "Streaming AG-UI chatbot for the Thailand SET market",
+  title: "Stock Exchange Copilot",
+  description: "Streaming AG-UI chatbot for a stock exchange",
 };
 
 export default function RootLayout({

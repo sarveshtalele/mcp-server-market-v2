@@ -1,1 +1,1 @@
-"""MCP server exposing SET market data + financial calculation tools."""
+"""MCP server exposing stock-exchange data + financial calculation tools."""

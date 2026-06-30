@@ -25,7 +25,7 @@ listed so it's a conscious decision).
 ## Fixed
 
 ### 1. Shared MCP stdio session under concurrency (High)
-`SETAgent` holds one `MCPToolClient` (a single stdio session) reused across all
+`ExchangeAgent` holds one `MCPToolClient` (a single stdio session) reused across all
 `/agui` requests. Two simultaneous users could interleave reads/writes on that
 duplex pipe and corrupt responses.
 **Fix:** added an `asyncio.Lock` in `MCPToolClient.call_tool` so tool

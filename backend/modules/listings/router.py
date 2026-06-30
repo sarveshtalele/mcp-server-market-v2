@@ -14,7 +14,7 @@ router = APIRouter(prefix="/listings", tags=["listings"])
 @router.get("/companies", response_model=list[CompanyOut])
 def get_companies(
     sector: str | None = Query(None, description="Filter by sector"),
-    market: str | None = Query(None, description="SET or mai"),
+    market: str | None = Query(None, description="NYSE or NASDAQ"),
     active_only: bool = Query(True),
     db: Session = Depends(get_db),
 ) -> list[CompanyOut]:

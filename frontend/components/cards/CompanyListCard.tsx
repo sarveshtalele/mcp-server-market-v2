@@ -1,6 +1,6 @@
 "use client";
 
-import { Company, fmtCompactTHB, fmtNum } from "@/lib/types";
+import { Company, fmtCompactUSD, fmtNum } from "@/lib/types";
 import { Card } from "./Common";
 
 export function CompanyListCard({ companies }: { companies: Company[] }) {
@@ -24,7 +24,7 @@ export function CompanyListCard({ companies }: { companies: Company[] }) {
                 <td className="gen-ellipsis">{c.company_name}</td>
                 <td className="gen-muted">{c.sector}</td>
                 <td className="num">{fmtNum(c.last_price)}</td>
-                <td className="num nowrap">{fmtCompactTHB(c.market_cap)}</td>
+                <td className="num nowrap">{fmtCompactUSD(c.market_cap)}</td>
               </tr>
             ))}
           </tbody>

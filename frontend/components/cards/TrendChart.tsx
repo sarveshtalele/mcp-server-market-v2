@@ -1,6 +1,6 @@
 "use client";
 
-import { Filing, fmtTHB } from "@/lib/types";
+import { Filing, fmtUSD } from "@/lib/types";
 import { Card } from "./Common";
 
 /**
@@ -44,7 +44,7 @@ export function TrendChart({ filings }: { filings: Filing[] }) {
   const gridLines = [0.25, 0.5, 0.75, 1].map((t) => padTop + plotH - t * plotH);
 
   return (
-    <Card title={`${symbol} — Revenue trend`} subtitle={`${n} quarters · THB`} accent="#e08a1e">
+    <Card title={`${symbol} — Revenue trend`} subtitle={`${n} quarters · USD`} accent="#e08a1e">
       <svg viewBox={`0 0 ${W} ${H}`} className="gen-chart" role="img"
            aria-label={`${symbol} quarterly revenue and net profit`}>
         {/* grid */}
@@ -59,7 +59,7 @@ export function TrendChart({ filings }: { filings: Filing[] }) {
             <rect key={f.fiscal_period} x={xCenter(i) - barW / 2} y={by}
                   width={barW} height={padTop + plotH - by}
                   rx="3" fill="#e08a1e" opacity="0.85">
-              <title>{`${f.fiscal_period} revenue: ${fmtTHB(f.revenue)}`}</title>
+              <title>{`${f.fiscal_period} revenue: ${fmtUSD(f.revenue)}`}</title>
             </rect>
           );
         })}
@@ -67,7 +67,7 @@ export function TrendChart({ filings }: { filings: Filing[] }) {
         <polyline points={profitPts} fill="none" stroke="#2f8f5b" strokeWidth="2.5" />
         {q.map((f, i) => (
           <circle key={`p${i}`} cx={xCenter(i)} cy={y(f.net_profit)} r="3.2" fill="#2f8f5b">
-            <title>{`${f.fiscal_period} net profit: ${fmtTHB(f.net_profit)}`}</title>
+            <title>{`${f.fiscal_period} net profit: ${fmtUSD(f.net_profit)}`}</title>
           </circle>
         ))}
         {/* x labels */}

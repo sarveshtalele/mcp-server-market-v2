@@ -12,19 +12,19 @@ from mcp.server.fastmcp import FastMCP
 ENDPOINTS = [
     EndpointTool(
         name="get_company",
-        description="Get listing details for one SET company by ticker symbol (e.g. 'PTT').",
+        description="Get listing details for one company by ticker symbol (e.g. 'AAPL').",
         path="/listings/companies/{symbol}",
         path_params=["symbol"],
     ),
     EndpointTool(
         name="search_companies",
-        description="Search listed companies, optionally filtered by sector and/or board (SET|mai).",
+        description="Search listed companies, optionally filtered by sector and/or board (NYSE|NASDAQ).",
         path="/listings/companies",
         query_params=["sector", "market"],
     ),
     EndpointTool(
         name="list_sectors",
-        description="List all SET sectors with the number of companies in each.",
+        description="List all sectors with the number of companies in each.",
         path="/listings/sectors",
     ),
 ]

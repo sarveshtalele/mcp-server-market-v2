@@ -27,8 +27,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Thailand SET Market Data API",
-    description="Synthetic SET market data, served by pluggable modules.",
+    title="Stock Exchange Data API",
+    description="Synthetic stock-exchange data, served by pluggable modules.",
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -67,7 +67,7 @@ def health() -> dict:
 @app.get("/", tags=["meta"])
 def root() -> dict:
     return {
-        "service": "Thailand SET Market Data API",
+        "service": "Stock Exchange Data API",
         "docs": "/docs",
         "modules": [s.name for s in _MODULES],
     }

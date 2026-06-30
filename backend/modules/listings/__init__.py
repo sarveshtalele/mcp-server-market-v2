@@ -10,7 +10,7 @@ from core.registry import ModuleSpec
 
 MODULE = ModuleSpec(
     name="listings",
-    description="SET/mai company listings and sectors.",
+    description="Company listings and sectors.",
     router=router,
     register_tools=register_tools,
     seed=seed,
