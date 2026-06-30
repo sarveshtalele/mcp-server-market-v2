@@ -106,6 +106,38 @@ teammate drops a package in `modules/` and it appears everywhere, no edits to
 
 ---
 
+## Forked or just cloned? Read this first
+
+These are **gitignored** (not in the repo) — you generate them locally:
+
+| Missing after clone | Create it with |
+|---|---|
+| `backend/.venv` | `uv venv .venv` (step 1) |
+| `frontend/node_modules` | `npm install` (step 1) |
+| `backend/stock_market.db` | `python -m core.seed --reset` (step 1) |
+| `backend/.env` | `copy .env.example .env` + add your keys |
+| `frontend/.env.local` | `copy .env.local.example .env.local` |
+
+**Two things you MUST change for your machine:**
+
+1. **LLM gateway** in `backend/.env` (web chat + CLI need it; the Data API and
+   MCP-in-Claude do **not**):
+   ```
+   LLM_API_KEY=...            # your key
+   LLM_BASE_URL=https://...   # your OpenAI-compatible proxy (e.g. LiteLLM)
+   LLM_MODEL=...              # a model your proxy serves (GET /v1/models to list)
+   ```
+2. **Absolute paths** in `.mcp.json` and `claude_desktop_config.example.json` are
+   hardcoded to the original author's machine. Before using the server in Claude
+   Code / Desktop, replace every
+   `C:\Users\SarveshTalele\Downloads\SET-MCP-SERVER\backend\...` with **your** clone
+   path + venv python. (The Data API and the web/CLI chatbots don't read these
+   files — only Claude Code/Desktop does.)
+
+Then follow the steps below.
+
+---
+
 ## 1. One-time setup
 
 **Backend** (from repo root) — uses `uv` (or swap for `python -m venv` + `pip`):
