@@ -1,0 +1,13 @@
+{
+  "_comment": "Merge this into your Claude Desktop config, then restart Claude Desktop. On Windows the file lives at %APPDATA%\\Claude\\claude_desktop_config.json. IMPORTANT: the Data API (uvicorn data_api.main:app --port 8000) must be running, because the MCP server fetches from it over HTTP. Use the absolute path to your venv python for reliability, e.g. ...\\backend\\.venv\\Scripts\\python.exe",
+  "mcpServers": {
+    "set-market": {
+      "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
+      "env": {
+        "DATA_API_BASE_URL": "http://127.0.0.1:8000"
+      }
+    }
+  }
+}
