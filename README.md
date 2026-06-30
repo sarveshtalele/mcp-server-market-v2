@@ -58,7 +58,7 @@ server plugs straight into **Claude Code** and **Claude Desktop**.
 ## Repository layout
 
 ```
-SET-MCP-SERVER/
+MCP-SERVER/
 ├── backend/
 │   ├── core/            config · database · registry · calculations · seed (framework)
 │   ├── modules/         PLUGGABLE DOMAINS — each is self-contained
