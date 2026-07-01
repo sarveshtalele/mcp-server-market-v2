@@ -3,9 +3,19 @@
 /**
  * Conversation persistence — Claude-style saved chats, stored in localStorage.
  *
- * A single hook (`useConversations`) owns the list of conversations, the active
- * one, and CRUD helpers. Messages (including per-tool timing) live inside each
- * conversation so switching chats restores the full transcript and activity.
+ * `useConversations` owns the list of conversations, the active one, and CRUD
+ * helpers. Messages (including per-tool timing) live inside each conversation so
+ * switching chats restores the full transcript and activity.
+ *
+ * Design notes:
+ * - State is lazily initialised from localStorage on the first client render
+ *   (this component only mounts client-side via `ssr:false`), so `active` is
+ *   never null and there is no empty hydration window.
+ * - Persistence is DEBOUNCED: streaming appends many small updates per second;
+ *   writing to localStorage on every one would jank the UI, so writes are
+ *   coalesced (~400 ms).
+ * - `setMessagesOf(id, …)` targets a specific conversation, so streaming keeps
+ *   writing to the right chat even if the user switches conversations mid-run.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ToolCall } from "@/components/chat/ToolChip";
@@ -27,6 +37,8 @@ export interface Conversation {
 }
 
 const STORAGE_KEY = "stkx.conversations.v1";
+const PERSIST_DEBOUNCE_MS = 400;
+
 const uid = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
@@ -36,7 +48,8 @@ function load(): Conversation[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Conversation[]) : [];
+    const parsed = raw ? (JSON.parse(raw) as Conversation[]) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -46,7 +59,7 @@ function persist(convs: Conversation[]) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(convs));
   } catch {
-    /* quota / privacy mode — ignore */
+    /* quota exceeded / privacy mode — ignore, chats stay in memory */
   }
 }
 
@@ -64,30 +77,32 @@ export function titleFrom(messages: Msg[]): string {
 }
 
 export function useConversations() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeId, setActiveId] = useState<string>("");
-  const hydrated = useRef(false);
-
-  // Hydrate once on mount (client only).
-  useEffect(() => {
+  // Lazy init: read localStorage once, synchronously, on first client render.
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
     const stored = load();
-    if (stored.length) {
-      setConversations(stored);
-      setActiveId(stored[0].id);
-    } else {
-      const c = newConversation();
-      setConversations([c]);
-      setActiveId(c.id);
-    }
-    hydrated.current = true;
+    return stored.length ? stored : [newConversation()];
+  });
+  const [activeId, setActiveId] = useState<string>(() => "");
+
+  // Pick the first conversation as active on mount (state initialisers can't
+  // reference each other, so this one-time effect wires it up).
+  useEffect(() => {
+    setActiveId((cur) => cur || conversations[0]?.id || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist whenever conversations change (after hydration).
+  // Debounced persistence — coalesce rapid streaming updates into one write.
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (hydrated.current) persist(conversations);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => persist(conversations), PERSIST_DEBOUNCE_MS);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
   }, [conversations]);
 
-  const active = conversations.find((c) => c.id === activeId) ?? null;
+  const active =
+    conversations.find((c) => c.id === activeId) ?? conversations[0] ?? null;
 
   const createChat = useCallback(() => {
     const c = newConversation();
@@ -112,27 +127,27 @@ export function useConversations() {
     [activeId],
   );
 
-  /** Replace the active conversation's messages (used during streaming). */
-  const setActiveMessages = useCallback(
-    (updater: (msgs: Msg[]) => Msg[]) => {
+  /** Update the messages of a specific conversation by id. */
+  const setMessagesOf = useCallback(
+    (id: string, updater: (msgs: Msg[]) => Msg[]) => {
       setConversations((prev) =>
         prev.map((c) => {
-          if (c.id !== activeId) return c;
+          if (c.id !== id) return c;
           const messages = updater(c.messages);
           return { ...c, messages, title: titleFrom(messages), updatedAt: Date.now() };
         }),
       );
     },
-    [activeId],
+    [],
   );
 
   return {
     conversations,
     active,
-    activeId,
+    activeId: active?.id ?? "",
     setActiveId,
     createChat,
     deleteChat,
-    setActiveMessages,
+    setMessagesOf,
   };
 }

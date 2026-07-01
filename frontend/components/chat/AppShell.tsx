@@ -41,7 +41,7 @@ export function AppShell() {
     setActiveId,
     createChat,
     deleteChat,
-    setActiveMessages,
+    setMessagesOf,
   } = useConversations();
 
   const [input, setInput] = useState("");
@@ -52,23 +52,27 @@ export function AppShell() {
 
   const messages = active?.messages ?? [];
 
+  // Keep the newest message in view. Use "auto" (not "smooth") so rapid token
+  // updates don't queue a backlog of animated scrolls.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
   }, [messages]);
 
-  /** Patch a single assistant message by id inside the active conversation. */
-  const patch = (id: string, fn: (m: Msg) => void) =>
-    setActiveMessages((prev) =>
-      prev.map((m) => {
-        if (m.id !== id) return m;
-        const copy = { ...m, tools: [...m.tools] };
-        fn(copy);
-        return copy;
-      }),
-    );
-
   async function send(text: string) {
-    if (loading || !text.trim() || !active) return;
+    if (loading || !text.trim()) return;
+    // Ensure a conversation exists (defensive; there is always one).
+    const convId = active?.id ?? createChat();
+
+    /** Patch one assistant message inside THIS conversation (survives switching). */
+    const patch = (id: string, fn: (m: Msg) => void) =>
+      setMessagesOf(convId, (prev) =>
+        prev.map((m) => {
+          if (m.id !== id) return m;
+          const copy = { ...m, tools: [...m.tools] };
+          fn(copy);
+          return copy;
+        }),
+      );
 
     const userMsg: Msg = { id: uid(), role: "user", content: text.trim(), tools: [] };
     const assistantId = uid();
@@ -80,7 +84,7 @@ export function AppShell() {
       content: m.content,
     }));
 
-    setActiveMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setMessagesOf(convId, (prev) => [...prev, userMsg, assistantMsg]);
     setInput("");
     setLoading(true);
 
@@ -90,7 +94,7 @@ export function AppShell() {
     try {
       for await (const ev of runAgent({
         url: AGENT_URL,
-        threadId: activeId,
+        threadId: convId,
         runId: uid(),
         messages: history,
         signal: controller.signal,
