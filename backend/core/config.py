@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # Currency label for synthetic data.
     currency: str = "USD"
 
+    # Logging verbosity: DEBUG | INFO | WARNING | ERROR.
+    log_level: str = "INFO"
+
 
 @lru_cache
 def get_settings() -> Settings:

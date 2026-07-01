@@ -18,6 +18,7 @@ UI — only the final `delta.content` is streamed as assistant text.
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from collections.abc import AsyncIterator
 
@@ -39,7 +40,10 @@ from ag_ui.encoder import EventEncoder
 from openai import AsyncOpenAI
 
 from core.config import settings
+from core.logging_config import get_logger
 from mcp_client.session import MCPToolClient
+
+log = get_logger("agent")
 
 SYSTEM_PROMPT = (
     "You are a stock-exchange market analyst assistant. "
@@ -249,8 +253,13 @@ class ExchangeAgent:
             args = json.loads(tc["args"]) if tc["args"] else {}
         except json.JSONDecodeError:
             args = {}
+
+        t0 = time.perf_counter()
         result = await self.mcp.call_tool(tc["name"], args)
+        elapsed_ms = (time.perf_counter() - t0) * 1000
         tc["result"] = result
+        tc["ms"] = round(elapsed_ms, 1)
+        log.info("tool %s(%s) -> %d chars in %.1f ms", tc["name"], args, len(result), elapsed_ms)
 
         yield encoder.encode(
             ToolCallResultEvent(

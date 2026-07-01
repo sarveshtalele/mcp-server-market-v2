@@ -18,7 +18,10 @@ from typing import Any
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+from core.logging_config import get_logger
+
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
+_log = get_logger("mcp_client")
 
 
 class MCPToolClient:
@@ -77,6 +80,7 @@ class MCPToolClient:
         """
         if self._session is None:
             raise RuntimeError("MCPToolClient.connect() not called")
+        _log.debug("call_tool %s args=%s", name, arguments)
         # Serialise: the stdio session is shared across concurrent requests.
         async with self._lock:
             result = await self._session.call_tool(name, arguments)

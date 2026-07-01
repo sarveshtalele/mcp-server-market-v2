@@ -1,0 +1,14 @@
+{
+  "//": "GitHub Copilot Chat (agent mode) + VS Code MCP config. Uses ${workspaceFolder} so it works for any clone. Start the Data API first (uvicorn data_api.main:app --port 8000); the MCP server fetches from it. Open Copilot Chat -> Agent -> the 'stock-exchange' tools appear.",
+  "servers": {
+    "stock-exchange": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "DATA_API_BASE_URL": "http://127.0.0.1:8000"
+      }
+    }
+  }
+}

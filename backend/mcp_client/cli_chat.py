@@ -87,6 +87,9 @@ async def main() -> None:
     except (AttributeError, ValueError):
         pass
 
+    from core.logging_config import setup_logging
+
+    setup_logging()
     if not settings.llm_api_key or not settings.openai_base_url:
         raise SystemExit("Set LLM_API_KEY and LLM_BASE_URL in backend/.env.")
 

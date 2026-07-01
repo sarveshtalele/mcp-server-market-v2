@@ -16,3 +16,8 @@ next-env.d.ts
 .DS_Store
 .idea/
 .vscode/
+!.vscode/mcp.json
+
+# large demo video (kept local)
+mcpserver_demo.mp4
+*.mp4

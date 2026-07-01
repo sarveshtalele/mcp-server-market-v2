@@ -205,6 +205,41 @@ Merge `claude_desktop_config.example.json` into
 `%APPDATA%\Claude\claude_desktop_config.json` (point `command` at
 `backend\.venv\Scripts\python.exe`) and restart Claude Desktop.
 
+### GitHub Copilot Chat (VS Code)
+`.vscode/mcp.json` is committed and uses `${workspaceFolder}`, so it works for any
+clone. Open the repo in VS Code → Copilot Chat → **Agent** mode → the
+`stock-exchange` tools appear. (Start the Data API first.)
+
+### Antigravity
+Copy `integrations/antigravity.mcp.example.json`, replace the absolute paths with
+your clone path + venv python, and add it via Antigravity's **Settings → MCP**
+(or its `mcp_config.json`). Start the Data API first.
+
+> Same MCP server, four hosts. None need an LLM key — the host provides the model.
+
+---
+
+## Web UI features
+
+The chatbot at `http://localhost:3000` is a custom 3-panel app:
+
+- **Left rail** — **New chat** + saved conversations (persisted in `localStorage`,
+  Claude-style) and one-click **Agents** (Valuation Analyst, Growth Scout, Sector
+  Screener, Peer Comparator) that pre-fill a focused prompt.
+- **Centre** — streaming answer with live **tool-call chips** and generative cards.
+- **Right rail** — **Tool activity**: every tool call with its arguments, status
+  and **execution time (ms)**, plus totals.
+
+## Logging & debugging
+
+All backend processes log to stderr via `core/logging_config.py`. Set the level in
+`backend/.env`:
+```
+LOG_LEVEL=DEBUG      # DEBUG | INFO | WARNING | ERROR
+```
+`INFO` logs each API request (path, status, latency) and each tool call with its
+duration; `DEBUG` adds tool arguments and MCP wire detail.
+
 ---
 
 ## MCP tools

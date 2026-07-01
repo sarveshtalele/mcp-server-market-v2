@@ -10,19 +10,25 @@ Docs at http://127.0.0.1:8000/docs
 """
 from __future__ import annotations
 
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
 from core.database import init_db
+from core.logging_config import get_logger
 from core.registry import discover_modules
+
+log = get_logger("data_api")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    names = [s.name for s in discover_modules()]
+    log.info("Data API ready - modules mounted: %s", ", ".join(names))
     yield
 
 
@@ -39,6 +45,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log every request with its status and latency (debug-friendly)."""
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    log.info(
+        "%s %s -> %d (%.1f ms)",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed_ms,
+    )
+    return response
 
 # Auto-mount every module that exposes a router.
 _MODULES = discover_modules()
