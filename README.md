@@ -190,32 +190,108 @@ cd backend; .venv\Scripts\python.exe -m pytest tests/
 
 ---
 
-## 3. Integrate the MCP server into Claude Code / Claude Desktop
+## 3. Add the MCP server to your AI host (copy-paste)
 
-**The Data API must be running** (`run_all.bat` starts it, or run the uvicorn
-command above) — the MCP server fetches from it.
+One MCP server, four hosts. **None need an LLM key** — the host supplies the model.
 
-### Claude Code
-`.mcp.json` is already at the repo root. From this folder run `claude`, approve the
-`stock-exchange` server, then ask Claude about companies. Adjust the `cwd`/`command`
-paths if your layout differs (use the venv python for reliability).
+> **Before you start (all hosts):** the **Data API must be running** on :8000
+> (`run_all.bat`, or `uvicorn data_api.main:app --port 8000`) — the MCP server
+> fetches from it over HTTP.
+>
+> **Replace the two paths** below with YOUR clone location:
+> - `command` → your `…\backend\.venv\Scripts\python.exe`
+> - `cwd` → your `…\backend`
+> (On macOS/Linux use `…/backend/.venv/bin/python`.)
 
-### Claude Desktop
-Merge `claude_desktop_config.example.json` into
-`%APPDATA%\Claude\claude_desktop_config.json` (point `command` at
-`backend\.venv\Scripts\python.exe`) and restart Claude Desktop.
+### 🟣 Claude Code
+Put this in **`.mcp.json`** at the repo root (already committed — just fix paths),
+then run `claude` from the repo folder and approve `stock-exchange`.
 
-### GitHub Copilot Chat (VS Code)
-`.vscode/mcp.json` is committed and uses `${workspaceFolder}`, so it works for any
-clone. Open the repo in VS Code → Copilot Chat → **Agent** mode → the
-`stock-exchange` tools appear. (Start the Data API first.)
+```json
+{
+  "mcpServers": {
+    "stock-exchange": {
+      "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
+      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000" }
+    }
+  }
+}
+```
 
-### Antigravity
-Copy `integrations/antigravity.mcp.example.json`, replace the absolute paths with
-your clone path + venv python, and add it via Antigravity's **Settings → MCP**
-(or its `mcp_config.json`). Start the Data API first.
+### 🟠 Claude Desktop
+Merge into **`%APPDATA%\Claude\claude_desktop_config.json`** (Windows) or
+**`~/Library/Application Support/Claude/claude_desktop_config.json`** (macOS), then
+**restart Claude Desktop**. Same JSON as Claude Code:
 
-> Same MCP server, four hosts. None need an LLM key — the host provides the model.
+```json
+{
+  "mcpServers": {
+    "stock-exchange": {
+      "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
+      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000" }
+    }
+  }
+}
+```
+
+### 🔵 GitHub Copilot Chat (VS Code)
+Put this in **`.vscode/mcp.json`** (already committed; uses `${workspaceFolder}` so
+it needs no path edits). Open the repo in VS Code → **Copilot Chat → Agent** mode →
+click the tools icon → enable `stock-exchange`. Note the key is `servers` (not
+`mcpServers`) and each server needs `"type": "stdio"`.
+
+```json
+{
+  "servers": {
+    "stock-exchange": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "${workspaceFolder}/backend",
+      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000" }
+    }
+  }
+}
+```
+
+### 🟢 Antigravity
+Open **Settings → MCP → Add server** (or edit Antigravity's `mcp_config.json`) and
+paste this, then reload the MCP servers:
+
+```json
+{
+  "mcpServers": {
+    "stock-exchange": {
+      "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
+      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000" }
+    }
+  }
+}
+```
+
+### After it's connected
+Ask the host: *"Use stock-exchange: compare JPM, BAC and WFC by ROE"*. Nine tools
+are available: `get_company`, `search_companies`, `list_sectors`, `get_filings`,
+`get_latest_filing`, `calc_financial_ratios`, `calc_revenue_growth`,
+`compare_companies`, `sector_ranking`.
+
+| Host | File / location | Top-level key | Notes |
+|---|---|---|---|
+| Claude Code | `.mcp.json` (repo root) | `mcpServers` | run `claude` in the repo |
+| Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` | `mcpServers` | restart the app |
+| Copilot (VS Code) | `.vscode/mcp.json` | `servers` | needs `"type":"stdio"`; Agent mode |
+| Antigravity | Settings → MCP / `mcp_config.json` | `mcpServers` | reload servers |
+
+Ready-to-edit copies also live in the repo: [`.mcp.json`](.mcp.json),
+[`.vscode/mcp.json`](.vscode/mcp.json),
+[`claude_desktop_config.example.json`](claude_desktop_config.example.json),
+[`integrations/antigravity.mcp.example.json`](integrations/antigravity.mcp.example.json).
 
 ---
 
