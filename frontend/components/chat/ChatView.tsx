@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyboardEvent, RefObject } from "react";
+import { KeyboardEvent, RefObject, useEffect } from "react";
 import { Msg } from "@/lib/store";
 import { Markdown } from "./Markdown";
 import { ToolChip } from "./ToolChip";
@@ -34,6 +34,14 @@ export function ChatView({
   onStop,
 }: ChatViewProps) {
   const empty = messages.length === 0;
+
+  // Auto-grow the composer to fit its content (up to a max), like Claude.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+  }, [input, inputRef]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
