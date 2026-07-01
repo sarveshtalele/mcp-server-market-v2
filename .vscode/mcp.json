@@ -4,10 +4,14 @@
     "stock-exchange": {
       "type": "stdio",
       "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
-      "args": ["-m", "mcp_server.server"],
+      "args": [
+        "-m",
+        "mcp_server.server"
+      ],
       "cwd": "${workspaceFolder}/backend",
       "env": {
-        "DATA_API_BASE_URL": "http://127.0.0.1:8000"
+        "DATA_API_BASE_URL": "http://127.0.0.1:8000",
+        "PYTHONPATH": "${workspaceFolder}/backend"
       }
     }
   }

@@ -214,7 +214,7 @@ then run `claude` from the repo folder and approve `stock-exchange`.
       "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
       "args": ["-m", "mcp_server.server"],
       "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
-      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000" }
+      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000", "PYTHONPATH": "C:\Users\SarveshTalele\Downloads\SET-MCP-SERVER\backend" }
     }
   }
 }
@@ -232,7 +232,7 @@ Merge into **`%APPDATA%\Claude\claude_desktop_config.json`** (Windows) or
       "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
       "args": ["-m", "mcp_server.server"],
       "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
-      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000" }
+      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000", "PYTHONPATH": "C:\Users\SarveshTalele\Downloads\SET-MCP-SERVER\backend" }
     }
   }
 }
@@ -252,7 +252,7 @@ click the tools icon → enable `stock-exchange`. Note the key is `servers` (not
       "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
       "args": ["-m", "mcp_server.server"],
       "cwd": "${workspaceFolder}/backend",
-      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000" }
+      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000", "PYTHONPATH": "${workspaceFolder}/backend" }
     }
   }
 }
@@ -269,7 +269,7 @@ paste this, then reload the MCP servers:
       "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
       "args": ["-m", "mcp_server.server"],
       "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
-      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000" }
+      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000", "PYTHONPATH": "C:\Users\SarveshTalele\Downloads\SET-MCP-SERVER\backend" }
     }
   }
 }
@@ -356,3 +356,9 @@ operating_cash_flow, eps. *(8 quarters 2023Q1–2024Q4 + an FY2024 annual per co
 - **MCP server in Claude shows no data** — start the Data API first.
 - **Reseed** — `python -m core.seed --reset`.
 - **Run tests** — `python -m pytest tests/` (from `backend/`).
+- **MCP host log says `No module named 'mcp_server'`** — the host launched the server
+  without `backend` on the import path. Fix: the `env.PYTHONPATH` must point at your
+  `…\backend` folder (all committed configs set this). Then fully quit + reopen the host.
+- **MCP server "disconnected" in Claude Desktop** — check
+  `%APPDATA%\Claude\logs\mcp-server-stock-exchange.log`; usually a wrong `command`
+  path or missing `PYTHONPATH`. Fully **Quit** from the tray (not just close) and reopen.
