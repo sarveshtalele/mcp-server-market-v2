@@ -82,8 +82,8 @@ export function ChatView({
                     <div className="cc__usertext">{m.content}</div>
                   ) : (
                     <>
-                      {m.tools.map((t) => (
-                        <div key={t.id} className="cc__tool">
+                      {m.tools.map((t, i) => (
+                        <div key={`${m.id}:${i}`} className="cc__tool">
                           <ToolChip tool={t} />
                           {t.status === "done" && (
                             <div className="cc__card">
@@ -100,6 +100,19 @@ export function ChatView({
                         </div>
                       )}
                       {m.error && <div className="cc__error">{m.error}</div>}
+                      {m.usage && (
+                        <div className="cc__usage">
+                          <span title="End-to-end response time">
+                            ⏱ {(m.usage.elapsedMs / 1000).toFixed(1)}s
+                          </span>
+                          <span title="Prompt + completion tokens">
+                            {m.usage.totalTokens.toLocaleString()} tokens
+                          </span>
+                          <span className="cc__usage-detail">
+                            ({m.usage.promptTokens.toLocaleString()} in / {m.usage.completionTokens.toLocaleString()} out)
+                          </span>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

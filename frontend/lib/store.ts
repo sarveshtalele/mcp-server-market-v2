@@ -20,12 +20,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ToolCall } from "@/components/chat/ToolChip";
 
+export interface MsgUsage {
+  /** Backend-measured end-to-end run time (LLM turns + tool calls), ms. */
+  elapsedMs: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  toolCalls: number;
+}
+
 export interface Msg {
   id: string;
   role: "user" | "assistant";
   content: string;
   tools: ToolCall[];
   error?: string;
+  /** Set from the backend's "usage" CUSTOM event once the run finishes. */
+  usage?: MsgUsage;
 }
 
 export interface Conversation {

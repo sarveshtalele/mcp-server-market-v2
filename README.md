@@ -302,9 +302,12 @@ The chatbot at `http://localhost:3000` is a custom 3-panel app:
 - **Left rail** — **New chat** + saved conversations (persisted in `localStorage`,
   Claude-style) and one-click **Agents** (Valuation Analyst, Growth Scout, Sector
   Screener, Peer Comparator) that pre-fill a focused prompt.
-- **Centre** — streaming answer with live **tool-call chips** and generative cards.
+- **Centre** — streaming answer with live **tool-call chips** and generative cards;
+  each finished reply shows **end-to-end response time and token usage**
+  (prompt/completion/total), backend-measured.
 - **Right rail** — **Tool activity**: every tool call with its arguments, status
-  and **execution time (ms)**, plus totals.
+  and **execution time (ms)**, plus totals; the latest response's time/tokens
+  are shown above it.
 
 ## Logging & debugging
 
@@ -315,6 +318,20 @@ LOG_LEVEL=DEBUG      # DEBUG | INFO | WARNING | ERROR
 ```
 `INFO` logs each API request (path, status, latency) and each tool call with its
 duration; `DEBUG` adds tool arguments and MCP wire detail.
+
+The AG-UI agent (`backend/agui_agent/agent.py`) additionally logs, per chat run:
+- the incoming prompt (truncated to 300 chars)
+- each LLM turn: latency, finish reason, response length/preview, tool-call count
+- the full run: total response time and full assistant response length/preview
+
+Example (`LOG_LEVEL=INFO`):
+```
+10:42:16 INFO [agent] run abc123 prompt: 'Compare JPM, BAC and WFC'
+10:42:17 INFO [agent] llm turn -> 812.3 ms, finish=tool_calls, 0 char(s), 3 tool_call(s): ''
+10:42:17 INFO [agent] tool compare_companies({...}) -> 1204 chars in 45.2 ms
+10:42:19 INFO [agent] llm turn -> 1530.1 ms, finish=stop, 412 char(s), 0 tool_call(s): 'JPM leads...'
+10:42:19 INFO [agent] run abc123 finished in 2390.6 ms - response 412 chars: 'JPM leads...'
+```
 
 ---
 

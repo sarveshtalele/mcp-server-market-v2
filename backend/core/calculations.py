@@ -145,13 +145,30 @@ def compare_companies(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+# Unit label + formatter per metric, so the response is self-describing and
+# pre-rounded — every consumer (MCP client, chatbot, etc.) gets the same
+# clean value instead of each one formatting a raw huge float differently.
+_METRIC_UNITS: dict[str, str] = {
+    "market_cap": "USD billions",
+    "last_price": "USD",
+    "pe_ratio": "ratio",
+    "pb_ratio": "ratio",
+    "dividend_yield": "percent",
+}
+
+
+def _format_metric_value(metric: str, raw: float) -> float:
+    if metric == "market_cap":
+        return round(raw / 1e9, 2)
+    return round(raw, 2)
+
+
 def sector_ranking(
     companies: list[dict[str, Any]], metric: str, top_n: int = 5
 ) -> dict[str, Any]:
     """Rank companies in a sector by a chosen metric (descending)."""
-    valid = {"market_cap", "pe_ratio", "pb_ratio", "dividend_yield", "last_price"}
-    if metric not in valid:
-        return {"error": f"metric must be one of {sorted(valid)}"}
+    if metric not in _METRIC_UNITS:
+        return {"error": f"metric must be one of {sorted(_METRIC_UNITS)}"}
 
     # Lower PE / PB is 'better', so ascending for those.
     ascending = metric in {"pe_ratio", "pb_ratio"}
@@ -159,13 +176,14 @@ def sector_ranking(
 
     return {
         "metric": metric,
+        "unit": _METRIC_UNITS[metric],
         "order": "ascending" if ascending else "descending",
         "ranking": [
             {
                 "rank": i + 1,
                 "symbol": c["symbol"],
                 "company_name": c["company_name"],
-                "value": c[metric],
+                "value": _format_metric_value(metric, c[metric]),
             }
             for i, c in enumerate(ranked)
         ],

@@ -7,7 +7,7 @@ export function SectorRankCard({ data }: { data: SectorRank }) {
   return (
     <Card
       title="Sector ranking"
-      subtitle={`By ${data.metric} (${data.order})`}
+      subtitle={`By ${data.metric} (${data.order}) · ${data.unit}`}
       accent="#d99a1e"
     >
       <ol className="gen-rank">

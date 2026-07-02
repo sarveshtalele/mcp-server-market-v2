@@ -10,7 +10,11 @@ venv/
 node_modules/
 .next/
 frontend/.env.local
+frontend/tsconfig.tsbuildinfo
 next-env.d.ts
+
+# Claude Code local state (machine-specific; launch.json is shared)
+.claude/settings.local.json
 
 # OS / editor
 .DS_Store

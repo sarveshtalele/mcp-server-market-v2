@@ -1,15 +1,15 @@
 {
   "mcpServers": {
     "stock-exchange": {
-      "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
+      "command": "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
       "args": [
         "-m",
         "mcp_server.server"
       ],
-      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
+      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend",
       "env": {
         "DATA_API_BASE_URL": "http://127.0.0.1:8000",
-        "PYTHONPATH": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend"
+        "PYTHONPATH": "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend"
       }
     }
   }

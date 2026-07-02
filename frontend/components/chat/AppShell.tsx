@@ -137,6 +137,13 @@ export function AppShell() {
               m.error = ev.message ?? "Agent error";
             });
             break;
+          case "CUSTOM":
+            if (ev.name === "usage") {
+              patch(assistantId, (m) => {
+                m.usage = ev.value as Msg["usage"];
+              });
+            }
+            break;
         }
       }
     } catch (e: unknown) {

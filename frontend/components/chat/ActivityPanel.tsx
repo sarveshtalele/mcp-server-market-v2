@@ -4,11 +4,31 @@ import { Msg } from "@/lib/store";
 import { ToolCall } from "./ToolChip";
 import { TOOL_LABEL } from "./toolCards";
 
-/** Flatten every tool call across the active conversation, newest first. */
-function collectTools(messages: Msg[]): ToolCall[] {
-  const all: ToolCall[] = [];
-  for (const m of messages) if (m.role === "assistant") all.push(...m.tools);
+/**
+ * Flatten every tool call across the active conversation, newest first.
+ *
+ * `ToolCall.id` comes straight from the LLM proxy's tool_call id, which is
+ * NOT guaranteed unique across the whole conversation (some proxies emit
+ * turn-scoped ids like "functions.get_company:0" that reset every turn) — so
+ * a synthetic `key` (message id + position) is attached for React instead of
+ * reusing `t.id` directly.
+ */
+function collectTools(messages: Msg[]): (ToolCall & { key: string })[] {
+  const all: (ToolCall & { key: string })[] = [];
+  for (const m of messages) {
+    if (m.role !== "assistant") continue;
+    m.tools.forEach((t, i) => all.push({ ...t, key: `${m.id}:${i}` }));
+  }
   return all.reverse();
+}
+
+/** The most recent assistant message that has finished (usage arrives at RUN_FINISHED). */
+function lastUsage(messages: Msg[]) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "assistant" && m.usage) return m.usage;
+  }
+  return null;
 }
 
 /**
@@ -21,12 +41,36 @@ export function ActivityPanel({ messages }: { messages: Msg[] }) {
   const done = tools.filter((t) => t.status === "done" && t.ms != null);
   const totalMs = done.reduce((s, t) => s + (t.ms ?? 0), 0);
   const avgMs = done.length ? totalMs / done.length : 0;
+  const usage = lastUsage(messages);
 
   return (
     <aside className="rail rail--right">
       <div className="rail__head">
         <span className="rail__brand">Tool activity</span>
       </div>
+
+      {usage && (
+        <>
+          <div className="activity__subhead">Last response</div>
+          <div className="activity__stats">
+            <div className="activity__stat">
+              <span className="activity__num">{(usage.elapsedMs / 1000).toFixed(1)}s</span>
+              <span className="activity__cap">response time</span>
+            </div>
+            <div className="activity__stat">
+              <span className="activity__num">{usage.totalTokens.toLocaleString()}</span>
+              <span className="activity__cap">tokens</span>
+            </div>
+            <div className="activity__stat">
+              <span className="activity__num">
+                {usage.promptTokens.toLocaleString()}/{usage.completionTokens.toLocaleString()}
+              </span>
+              <span className="activity__cap">in / out</span>
+            </div>
+          </div>
+          <div className="activity__subhead">Tool calls</div>
+        </>
+      )}
 
       <div className="activity__stats">
         <div className="activity__stat">
@@ -59,7 +103,7 @@ export function ActivityPanel({ messages }: { messages: Msg[] }) {
             /* streaming args */
           }
           return (
-            <div key={t.id} className={`activity__row activity__row--${t.status}`}>
+            <div key={t.key} className={`activity__row activity__row--${t.status}`}>
               <span className="activity__dot" />
               <span className="activity__info">
                 <span className="activity__name">{TOOL_LABEL[t.name] ?? t.name}</span>

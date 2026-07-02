@@ -74,6 +74,7 @@ export interface Comparison {
 
 export interface SectorRank {
   metric: string;
+  unit: string;
   order: string;
   ranking: { rank: number; symbol: string; company_name: string; value: number }[];
 }
