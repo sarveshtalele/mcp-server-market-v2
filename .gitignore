@@ -30,3 +30,6 @@ mcpserver_demo.mp4
 backend/mcp_server/gateway/bin/
 backend/mcp_server/gateway/*.log
 backend/mcp_server/gateway/config-stdio-test.yaml
+# auto-generated scaffold files the agentgateway UI writes on its own (model
+# cost catalog etc.) - not something we authored, regenerated if needed
+backend/mcp_server/gateway/base-costs.json

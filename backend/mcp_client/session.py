@@ -19,6 +19,7 @@ import asyncio
 import json
 from contextlib import AsyncExitStack
 from typing import Any
+from urllib.parse import urlparse
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
@@ -27,6 +28,39 @@ from core.config import settings
 from core.logging_config import get_logger
 
 _log = get_logger("mcp_client")
+
+
+async def _wait_for_port(url: str, retries: int, delay: float) -> None:
+    """Poll a raw TCP connection until `url`'s host:port accepts one.
+
+    Deliberately a plain socket probe, not an MCP handshake attempt: the
+    Streamable HTTP client's anyio task group doesn't tolerate being retried
+    after a failed connect (its cancel-scope teardown assumes it's only ever
+    entered/exited once) — retrying *that* directly turns one clean
+    "connection refused" into a second, uglier crash on cleanup. Probing with
+    a bare socket first means the real MCP connection attempt below only
+    ever runs once the gateway is actually accepting connections.
+    """
+    host = urlparse(url).hostname or "127.0.0.1"
+    port = urlparse(url).port or 80
+    last_exc: OSError | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            _, writer = await asyncio.open_connection(host, port)
+            writer.close()
+            await writer.wait_closed()
+            return
+        except OSError as exc:
+            last_exc = exc
+            if attempt < retries:
+                _log.warning(
+                    "MCP gateway not reachable yet at %s:%d (attempt %d/%d) - retrying in %.0fs",
+                    host, port, attempt, retries, delay,
+                )
+                await asyncio.sleep(delay)
+    raise RuntimeError(
+        f"MCP gateway at {host}:{port} not reachable after {retries} attempts"
+    ) from last_exc
 
 
 class MCPToolClient:
@@ -38,8 +72,15 @@ class MCPToolClient:
         self._tools: list[Any] = []
         self._lock = asyncio.Lock()
 
-    async def connect(self) -> None:
-        """Connect to the MCP server through agentgateway and initialise the session."""
+    async def connect(self, retries: int = 30, retry_delay: float = 1.0) -> None:
+        """Connect to the MCP server through agentgateway and initialise the session.
+
+        Waits for the gateway's port to be reachable first — when everything
+        is launched together (e.g. `run_all.bat`), the gateway may take a
+        moment to bind its port, and without this a normal startup race would
+        crash this process instead of just waiting for it.
+        """
+        await _wait_for_port(settings.mcp_gateway_url, retries, retry_delay)
         self._stack = AsyncExitStack()
         read, write, _get_session_id = await self._stack.enter_async_context(
             streamablehttp_client(settings.mcp_gateway_url)

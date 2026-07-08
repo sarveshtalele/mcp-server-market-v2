@@ -325,8 +325,22 @@ redirect it) as a structured line, no extra logging code needed:
 ```
 A denied tool (removed from the allowlist) disappears from `tools/list` and any
 direct call to it gets a JSON-RPC error (`Unknown tool: <name>`) instead of
-reaching the Python server. Prometheus metrics are at the admin port's
-`/metrics`, and a browsable UI is at `http://localhost:15000/ui`.
+reaching the Python server.
+
+**Browsing it**: agentgateway ships a UI at `http://localhost:15000/ui` for
+inspecting/editing config (Listeners/Routes/Backends, with a live YAML preview)
+and an "MCP Playground" for making test tool calls in-browser. Two things to
+know going in:
+- Its left-nav **"MCP"** section is a wizard that creates a *brand new*
+  listener/target when you click through it — it's not "manage the existing
+  server." Our `stock-exchange` target was hand-written directly as config, so
+  it shows up under **Traffic → Listeners**, not under "MCP". Don't use the MCP
+  wizard to "edit" it — that creates a second, unrelated target instead.
+- **It has no log viewer** (confirmed — no such page, no API for it either).
+  For that, use **`http://localhost:8000/gateway-logs`** instead (added to this
+  project's Data API) — an auto-refreshing page tailing the gateway's audit log
+  and the wrapped Python server's stderr, so you don't need a terminal window
+  open to debug a tool call.
 
 **Note on Claude Desktop/Antigravity**: their config files don't accept a plain
 `"type": "http"` server entry, so those two go through the `mcp-remote` npm

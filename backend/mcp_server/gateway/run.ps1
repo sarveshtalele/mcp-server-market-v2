@@ -5,7 +5,7 @@ $exe = Join-Path $PSScriptRoot "bin\agentgateway.exe"
 $cfg = Join-Path $PSScriptRoot "config.yaml"
 
 if (-not (Test-Path $exe)) {
-    Write-Host "agentgateway.exe not found — run setup.ps1 first."
+    Write-Host "agentgateway.exe not found - run setup.ps1 first."
     exit 1
 }
 

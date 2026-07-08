@@ -1,26 +1,44 @@
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
 binds:
-  - port: 3111
-    listeners:
-      - routes:
-          - backends:
-              - mcp:
-                  targets:
-                    - name: stock-exchange
-                      stdio:
-                        cmd: "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend\\.venv\\Scripts\\python.exe"
-                        args: ["-m", "mcp_server.server"]
-                        env:
-                          DATA_API_BASE_URL: "http://127.0.0.1:8000"
-                          PYTHONPATH: "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend"
-                policies:
-                  mcpAuthorization:
-                    rules:
-                      - 'mcp.tool.name == "get_company"'
-                      - 'mcp.tool.name == "search_companies"'
-                      - 'mcp.tool.name == "list_sectors"'
-                      - 'mcp.tool.name == "get_filings"'
-                      - 'mcp.tool.name == "get_latest_filing"'
-                      - 'mcp.tool.name == "calc_financial_ratios"'
-                      - 'mcp.tool.name == "calc_revenue_growth"'
-                      - 'mcp.tool.name == "compare_companies"'
-                      - 'mcp.tool.name == "sector_ranking"'
+- port: 3111
+  listeners:
+  - routes:
+    - backends:
+      - mcp:
+          targets:
+          - name: stock-exchange
+            stdio:
+              cmd: C:\Users\SarveshTalele\Downloads\MCP-SERVER\backend\.venv\Scripts\python.exe
+              args:
+              - -m
+              - mcp_server.server
+              env:
+                DATA_API_BASE_URL: http://127.0.0.1:8000
+                PYTHONPATH: C:\Users\SarveshTalele\Downloads\MCP-SERVER\backend
+        policies:
+          mcpAuthorization:
+            rules:
+            - mcp.tool.name == "get_company"
+            - mcp.tool.name == "search_companies"
+            - mcp.tool.name == "list_sectors"
+            - mcp.tool.name == "get_filings"
+            - mcp.tool.name == "get_latest_filing"
+            - mcp.tool.name == "calc_financial_ratios"
+            - mcp.tool.name == "calc_revenue_growth"
+            - mcp.tool.name == "compare_companies"
+            - mcp.tool.name == "sector_ranking"
+      policies:
+        cors:
+          allowOrigins:
+          - http://localhost:15000
+          allowHeaders:
+          - content-type
+          - mcp-session-id
+          - authorization
+          allowMethods:
+          - GET
+          - POST
+          - OPTIONS
+          exposeHeaders:
+          - mcp-session-id
+          allowCredentials: true
