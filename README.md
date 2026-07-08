@@ -127,12 +127,12 @@ These are **gitignored** (not in the repo) — you generate them locally:
    LLM_BASE_URL=https://...   # your OpenAI-compatible proxy (e.g. LiteLLM)
    LLM_MODEL=...              # a model your proxy serves (GET /v1/models to list)
    ```
-2. **Absolute paths** in `.mcp.json` and `claude_desktop_config.example.json` are
-   hardcoded to the original author's machine. Before using the server in Claude
-   Code / Desktop, replace every
-   `C:\Users\SarveshTalele\Downloads\SET-MCP-SERVER\backend\...` with **your** clone
-   path + venv python. (The Data API and the web/CLI chatbots don't read these
-   files — only Claude Code/Desktop does.)
+2. **Absolute paths**: `.mcp.json`, `claude_desktop_config.example.json`, and the
+   other host configs point at `http://127.0.0.1:3111` (agentgateway) — no
+   per-machine path to edit there anymore. The one place a path still matters is
+   `backend/mcp_server/gateway/config.yaml`'s `cmd`/`env` — point those at
+   **your** clone's `…\backend\.venv\Scripts\python.exe` if you didn't clone to
+   the same path as the original author's machine.
 
 Then follow the steps below.
 
@@ -193,28 +193,26 @@ cd backend; .venv\Scripts\python.exe -m pytest tests/
 ## 3. Add the MCP server to your AI host (copy-paste)
 
 One MCP server, four hosts. **None need an LLM key** — the host supplies the model.
+Every host connects through **agentgateway** (governance allowlist + audit log
+in front of the MCP server — see "agentgateway" below), not by spawning the
+Python server directly.
 
-> **Before you start (all hosts):** the **Data API must be running** on :8000
-> (`run_all.bat`, or `uvicorn data_api.main:app --port 8000`) — the MCP server
-> fetches from it over HTTP.
->
-> **Replace the two paths** below with YOUR clone location:
-> - `command` → your `…\backend\.venv\Scripts\python.exe`
-> - `cwd` → your `…\backend`
-> (On macOS/Linux use `…/backend/.venv/bin/python`.)
+> **Before you start (all hosts):** run, in order:
+> 1. **Data API** on :8000 (`run_all.bat`, or `uvicorn data_api.main:app --port 8000`)
+> 2. **agentgateway** on :3111 — one-time: `backend/mcp_server/gateway/setup.ps1`
+>    (downloads the binary), then `backend/mcp_server/gateway/run.ps1` (or just
+>    use `run_all.bat`, which starts both automatically)
 
 ### 🟣 Claude Code
-Put this in **`.mcp.json`** at the repo root (already committed — just fix paths),
-then run `claude` from the repo folder and approve `stock-exchange`.
+Put this in **`.mcp.json`** at the repo root (already committed), then run
+`claude` from the repo folder and approve `stock-exchange`.
 
 ```json
 {
   "mcpServers": {
     "stock-exchange": {
-      "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
-      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000", "PYTHONPATH": "C:\Users\SarveshTalele\Downloads\SET-MCP-SERVER\backend" }
+      "type": "http",
+      "url": "http://127.0.0.1:3111/mcp"
     }
   }
 }
@@ -223,36 +221,34 @@ then run `claude` from the repo folder and approve `stock-exchange`.
 ### 🟠 Claude Desktop
 Merge into **`%APPDATA%\Claude\claude_desktop_config.json`** (Windows) or
 **`~/Library/Application Support/Claude/claude_desktop_config.json`** (macOS), then
-**restart Claude Desktop**. Same JSON as Claude Code:
+**fully quit and relaunch Claude Desktop** (a window close is not enough — it
+only reloads this file on a full restart). Desktop's config file doesn't support
+a plain remote `"type": "http"` entry, so this uses the
+[`mcp-remote`](https://www.npmjs.com/package/mcp-remote) bridge (needs Node/npx
+on PATH) to speak stdio to Desktop while proxying to the gateway over HTTP:
 
 ```json
 {
   "mcpServers": {
     "stock-exchange": {
-      "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
-      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000", "PYTHONPATH": "C:\Users\SarveshTalele\Downloads\SET-MCP-SERVER\backend" }
+      "command": "npx",
+      "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
     }
   }
 }
 ```
 
 ### 🔵 GitHub Copilot Chat (VS Code)
-Put this in **`.vscode/mcp.json`** (already committed; uses `${workspaceFolder}` so
-it needs no path edits). Open the repo in VS Code → **Copilot Chat → Agent** mode →
-click the tools icon → enable `stock-exchange`. Note the key is `servers` (not
-`mcpServers`) and each server needs `"type": "stdio"`.
+Put this in **`.vscode/mcp.json`** (already committed). Open the repo in VS Code →
+**Copilot Chat → Agent** mode → click the tools icon → enable `stock-exchange`.
+Note the key is `servers` (not `mcpServers`).
 
 ```json
 {
   "servers": {
     "stock-exchange": {
-      "type": "stdio",
-      "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "${workspaceFolder}/backend",
-      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000", "PYTHONPATH": "${workspaceFolder}/backend" }
+      "type": "http",
+      "url": "http://127.0.0.1:3111/mcp"
     }
   }
 }
@@ -260,16 +256,15 @@ click the tools icon → enable `stock-exchange`. Note the key is `servers` (not
 
 ### 🟢 Antigravity
 Open **Settings → MCP → Add server** (or edit Antigravity's `mcp_config.json`) and
-paste this, then reload the MCP servers:
+paste this, then reload the MCP servers. Native remote/http MCP support isn't
+confirmed for Antigravity, so this uses the same `mcp-remote` bridge as Desktop:
 
 ```json
 {
   "mcpServers": {
     "stock-exchange": {
-      "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
-      "env": { "DATA_API_BASE_URL": "http://127.0.0.1:8000", "PYTHONPATH": "C:\Users\SarveshTalele\Downloads\SET-MCP-SERVER\backend" }
+      "command": "npx",
+      "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
     }
   }
 }
@@ -281,17 +276,63 @@ are available: `get_company`, `search_companies`, `list_sectors`, `get_filings`,
 `get_latest_filing`, `calc_financial_ratios`, `calc_revenue_growth`,
 `compare_companies`, `sector_ranking`.
 
-| Host | File / location | Top-level key | Notes |
+| Host | File / location | Connects via | Notes |
 |---|---|---|---|
-| Claude Code | `.mcp.json` (repo root) | `mcpServers` | run `claude` in the repo |
-| Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` | `mcpServers` | restart the app |
-| Copilot (VS Code) | `.vscode/mcp.json` | `servers` | needs `"type":"stdio"`; Agent mode |
-| Antigravity | Settings → MCP / `mcp_config.json` | `mcpServers` | reload servers |
+| Claude Code | `.mcp.json` (repo root) | `type: http` → gateway | run `claude` in the repo |
+| Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` | `mcp-remote` bridge → gateway | full restart, not just window close |
+| Copilot (VS Code) | `.vscode/mcp.json` | `type: http` → gateway | Agent mode |
+| Antigravity | Settings → MCP / `mcp_config.json` | `mcp-remote` bridge → gateway | reload servers |
 
 Ready-to-edit copies also live in the repo: [`.mcp.json`](.mcp.json),
 [`.vscode/mcp.json`](.vscode/mcp.json),
 [`claude_desktop_config.example.json`](claude_desktop_config.example.json),
 [`integrations/antigravity.mcp.example.json`](integrations/antigravity.mcp.example.json).
+
+---
+
+## agentgateway (governance + audit logging)
+
+[agentgateway](https://github.com/agentgateway/agentgateway) (Rust, Apache-2.0,
+Linux Foundation) sits in front of `python -m mcp_server.server` for **every**
+consumer — all four hosts above, and this project's own web chatbot
+(`backend/agui_agent`, via `backend/mcp_client/session.py`). It's the one place
+that now spawns the Python server; nothing else does.
+
+```
+Claude Code/Copilot  --http-->  agentgateway :3111  --stdio(spawns)-->  python -m mcp_server.server
+Claude Desktop/Antigravity --stdio(mcp-remote bridge)-->  agentgateway :3111  --stdio(spawns)-->  same
+Our web chatbot (agui_agent) --http-->  agentgateway :3111  --stdio(spawns)-->  same
+```
+
+**Setup** (one-time): `backend/mcp_server/gateway/setup.ps1` downloads
+`agentgateway-windows-amd64.exe` into `backend/mcp_server/gateway/bin/` (86MB,
+gitignored — not committed). **Run**: `backend/mcp_server/gateway/run.ps1`, or
+just use `run_all.bat`, which starts it automatically alongside the Data API
+and AG-UI agent.
+
+**Config**: `backend/mcp_server/gateway/config.yaml` — the `mcp.targets[].stdio`
+block wraps the same `python -m mcp_server.server` command/env every host used
+to spawn directly; `policies.mcpAuthorization` is a CEL-based allowlist of tool
+names (currently all 9, mirroring what's exposed today — tighten it by removing
+rules for tools you want to block). This is **tool-name-level** governance only
+— it can't filter by argument content (e.g. "only for Financials sector"); that
+would need a separate check inside the tool functions themselves.
+
+**Audit log**: every call appears in the gateway's own stdout (or wherever you
+redirect it) as a structured line, no extra logging code needed:
+```
+... mcp.method.name=tools/call mcp.target=stock-exchange gen_ai.tool.name=get_company mcp.session.id=... duration=299ms
+```
+A denied tool (removed from the allowlist) disappears from `tools/list` and any
+direct call to it gets a JSON-RPC error (`Unknown tool: <name>`) instead of
+reaching the Python server. Prometheus metrics are at the admin port's
+`/metrics`, and a browsable UI is at `http://localhost:15000/ui`.
+
+**Note on Claude Desktop/Antigravity**: their config files don't accept a plain
+`"type": "http"` server entry, so those two go through the `mcp-remote` npm
+bridge instead (a tiny stdio-to-HTTP relay) — verified separately that its own
+logs go to stderr only, so it never corrupts the stdio JSON-RPC channel those
+two hosts expect.
 
 ---
 

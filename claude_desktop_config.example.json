@@ -1,17 +1,9 @@
 {
-  "_comment": "Merge this into your Claude Desktop config, then restart Claude Desktop. On Windows the file lives at %APPDATA%\\Claude\\claude_desktop_config.json. IMPORTANT: the Data API (uvicorn data_api.main:app --port 8000) must be running, because the MCP server fetches from it over HTTP. Use the absolute path to your venv python for reliability, e.g. ...\\backend\\.venv\\Scripts\\python.exe",
+  "_comment": "Merge this into your Claude Desktop config, then fully quit and relaunch Claude Desktop (a window close is not enough). On Windows the file lives at %APPDATA%\\Claude\\claude_desktop_config.json. This connects through agentgateway (governance + audit logging in front of the MCP server) rather than spawning the Python server directly. Claude Desktop's config file does not support a plain remote 'type: http' entry, so this uses the 'mcp-remote' bridge (npx) to speak stdio to Desktop while proxying to the gateway over Streamable HTTP. Start, in order: Data API (uvicorn data_api.main:app --port 8000), then agentgateway (backend/mcp_server/gateway/ — see README 'agentgateway'). Requires Node/npx on PATH.",
   "mcpServers": {
     "stock-exchange": {
-      "command": "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
-      "args": [
-        "-m",
-        "mcp_server.server"
-      ],
-      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend",
-      "env": {
-        "DATA_API_BASE_URL": "http://127.0.0.1:8000",
-        "PYTHONPATH": "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend"
-      }
+      "command": "npx",
+      "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
     }
   }
 }

@@ -1,16 +1,8 @@
 {
   "mcpServers": {
     "stock-exchange": {
-      "command": "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
-      "args": [
-        "-m",
-        "mcp_server.server"
-      ],
-      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend",
-      "env": {
-        "DATA_API_BASE_URL": "http://127.0.0.1:8000",
-        "PYTHONPATH": "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend"
-      }
+      "type": "http",
+      "url": "http://127.0.0.1:3111/mcp"
     }
   }
 }

@@ -1,31 +1,36 @@
 """Reusable MCP client session.
 
-Spawns the MCP server (`python -m mcp_server.server`) over stdio, discovers its
-tools, and adapts them to the OpenAI function-calling schema. Used by both the
-CLI chatbot and the AG-UI agent, so the "MCP client calls MCP server" path is
-shared. Tool calls are serialised by a lock because the stdio session is shared
-across concurrent requests.
+Connects to the stock-exchange MCP server through agentgateway (Streamable
+HTTP, see `backend/mcp_server/gateway/config.yaml`) rather than spawning
+`python -m mcp_server.server` directly — the gateway is what actually spawns
+that process, and adds a tool-name allowlist + a per-call audit log in front
+of it for every consumer, not just this one. Start the gateway first (see
+README "agentgateway"); this client just needs it reachable at
+`settings.mcp_gateway_url`.
+
+Discovers tools and adapts them to the OpenAI function-calling schema. Used by
+both the CLI chatbot and the AG-UI agent, so the "MCP client calls MCP server"
+path is shared. Tool calls are serialised by a lock because the session is
+shared across concurrent requests.
 """
 from __future__ import annotations
 
 import asyncio
 import json
-import sys
 from contextlib import AsyncExitStack
-from pathlib import Path
 from typing import Any
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
+from core.config import settings
 from core.logging_config import get_logger
 
-BACKEND_ROOT = Path(__file__).resolve().parent.parent
 _log = get_logger("mcp_client")
 
 
 class MCPToolClient:
-    """Manages a stdio connection to the stock-exchange MCP server."""
+    """Manages a Streamable HTTP connection (via agentgateway) to the stock-exchange MCP server."""
 
     def __init__(self) -> None:
         self._session: ClientSession | None = None
@@ -34,14 +39,11 @@ class MCPToolClient:
         self._lock = asyncio.Lock()
 
     async def connect(self) -> None:
-        """Launch the MCP server subprocess and initialise the session."""
-        params = StdioServerParameters(
-            command=sys.executable,
-            args=["-m", "mcp_server.server"],
-            cwd=str(BACKEND_ROOT),
-        )
+        """Connect to the MCP server through agentgateway and initialise the session."""
         self._stack = AsyncExitStack()
-        read, write = await self._stack.enter_async_context(stdio_client(params))
+        read, write, _get_session_id = await self._stack.enter_async_context(
+            streamablehttp_client(settings.mcp_gateway_url)
+        )
         self._session = await self._stack.enter_async_context(ClientSession(read, write))
         await self._session.initialize()
         self._tools = (await self._session.list_tools()).tools

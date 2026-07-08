@@ -1,17 +1,9 @@
 {
-  "_comment": "Google Antigravity MCP config. Add via Antigravity Settings -> MCP -> Add server (or paste into its mcp_config.json). Replace the absolute paths with YOUR clone path + venv python. The Data API must be running (uvicorn data_api.main:app --port 8000) because the MCP server fetches from it over HTTP.",
+  "_comment": "Google Antigravity MCP config. Add via Antigravity Settings -> MCP -> Add server (or paste into its mcp_config.json). Connects through agentgateway (governance + audit logging in front of the MCP server) via the 'mcp-remote' bridge (npx), since native remote/http MCP server support isn't confirmed for Antigravity. Start, in order: Data API (uvicorn data_api.main:app --port 8000), then agentgateway (backend/mcp_server/gateway/ — see README 'agentgateway'). Requires Node/npx on PATH.",
   "mcpServers": {
     "stock-exchange": {
-      "command": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend\\.venv\\Scripts\\python.exe",
-      "args": [
-        "-m",
-        "mcp_server.server"
-      ],
-      "cwd": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend",
-      "env": {
-        "DATA_API_BASE_URL": "http://127.0.0.1:8000",
-        "PYTHONPATH": "C:\\Users\\SarveshTalele\\Downloads\\SET-MCP-SERVER\\backend"
-      }
+      "command": "npx",
+      "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
     }
   }
 }

@@ -25,3 +25,8 @@ next-env.d.ts
 # large demo video (kept local)
 mcpserver_demo.mp4
 *.mp4
+
+# agentgateway binary (86MB, downloaded per-machine, not committed) + local logs
+backend/mcp_server/gateway/bin/
+backend/mcp_server/gateway/*.log
+backend/mcp_server/gateway/config-stdio-test.yaml

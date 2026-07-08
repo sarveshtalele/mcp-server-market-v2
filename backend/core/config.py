@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     # Logging verbosity: DEBUG | INFO | WARNING | ERROR.
     log_level: str = "INFO"
 
+    # --- agentgateway (governance + audit logging in front of the MCP server) -
+    # The AG-UI agent's MCPToolClient connects here instead of spawning
+    # `python -m mcp_server.server` directly. Start the gateway with
+    # `backend/mcp_server/gateway/config.yaml` (see README) before this.
+    mcp_gateway_url: str = "http://127.0.0.1:3111/mcp"
+
 
 @lru_cache
 def get_settings() -> Settings:
