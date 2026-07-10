@@ -292,11 +292,24 @@ Ready-to-edit copies also live in the repo: [`.mcp.json`](.mcp.json),
 
 ## agentgateway (governance + audit logging)
 
-[agentgateway](https://github.com/agentgateway/agentgateway) (Rust, Apache-2.0,
-Linux Foundation) sits in front of `python -m mcp_server.server` for **every**
-consumer — all four hosts above, and this project's own web chatbot
-(`backend/agui_agent`, via `backend/mcp_client/session.py`). It's the one place
-that now spawns the Python server; nothing else does.
+**Why we added this**: before agentgateway, each of the five consumers (Claude
+Code, Claude Desktop, VS Code Copilot, Antigravity, and this project's own web
+chatbot) spawned `python -m mcp_server.server` directly and independently —
+no shared way to see who called which tool, and no way to block a tool without
+editing the Python server itself. Adding a proxy in front of the server, instead
+of building this into the server, means one place to govern/audit *every*
+consumer instead of duplicating that logic five times.
+
+**How it works, in short**: [agentgateway](https://github.com/agentgateway/agentgateway)
+(Rust, Apache-2.0, Linux Foundation) sits in front of `python -m
+mcp_server.server` for **every** consumer — all four hosts above, and this
+project's own web chatbot (`backend/agui_agent`, via
+`backend/mcp_client/session.py`). It's the one place that now spawns the
+Python server; nothing else does. Every consumer talks to the gateway over
+HTTP; the gateway spawns the real Python server itself as its own stdio child
+(config in `backend/mcp_server/gateway/config.yaml`), checks each tool call
+against an allowlist, and logs it — all before the call ever reaches the
+Python server.
 
 ```
 Claude Code/Copilot  --http-->  agentgateway :3111  --stdio(spawns)-->  python -m mcp_server.server
