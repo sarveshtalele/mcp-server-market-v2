@@ -1,9 +1,14 @@
 # Stock Exchange — MCP + AG-UI PoC
 
-End-to-end proof of concept: synthetic **stock-exchange** market data, served by a FastAPI **Data API**, exposed to LLMs through an **MCP server**,
-and consumed by two chatbots — a terminal client and a streaming **AG-UI** web app
-(custom Claude-style UI with live tool-call chips + generative cards). The same MCP
-server plugs straight into **Claude Code** and **Claude Desktop**.
+End-to-end proof of concept: synthetic **stock-exchange** market data, served by a
+FastAPI **Data API**, exposed to LLMs through an **MCP server**, and consumed by
+two chatbots — a terminal client and a streaming **AG-UI** web app (custom
+Claude-style UI with live tool-call chips, generative cards, and per-response
+timing/token-usage). The same MCP server also plugs into **Claude Code**,
+**Claude Desktop**, **VS Code Copilot**, and **Antigravity** — every consumer,
+including the two chatbots, connects through **[agentgateway](https://github.com/agentgateway/agentgateway)**,
+which enforces a tool-name allowlist and keeps one shared audit log of every
+call, instead of each consumer talking to the MCP server directly.
 
 > ⚠️ All financial figures are **synthetic** (deterministically generated). Ticker
 > symbols and sectors are real ticker names for realism only — this is not market data.
@@ -15,41 +20,54 @@ server plugs straight into **Claude Code** and **Claude Desktop**.
 ## Architecture
 
 ```
-                       ┌──────────────────────────────┐
+                       ┌────────────────────────────────┐
                        │  SQLite (stock_market.db)       │
-                       │  companies · filings (ORM)    │
-                       └───────────────┬───────────────┘
-                                       │ SQLAlchemy
-                       ┌───────────────▼───────────────┐
-                       │  Data API — FastAPI :8000      │
-                       │  /listings  ·  /filings        │
-                       └───────────────┬───────────────┘
-                                       │ HTTP (httpx)
-                       ┌───────────────▼───────────────┐
-                       │  MCP Server (FastMCP, stdio)   │
-                       │  fetch tools + calc tools      │
-                       └───────┬───────────────┬────────┘
-                       stdio   │               │  stdio
-        ┌──────────────────────▼──┐   ┌────────▼──────────────────────┐
-        │  CLI chatbot (MCP client)│   │  AG-UI agent (MCP client) :8001│
-        │  mcp_client.cli_chat     │   │  Claude + AG-UI event stream   │
-        └──────────────────────────┘   └────────┬──────────────────────┘
-                                                 │ AG-UI over HTTP/SSE (browser fetch)
-                                       ┌─────────▼──────────────────────┐
-                                       │ Next.js custom chat   :3000     │
-                                       │ streamed text + tool chips/cards│
-                                       └─────────────────────────────────┘
-                       ┌────────────────────────────────────────────────┐
-                       │ Claude Code / Claude Desktop  ── .mcp.json ─────►│ MCP Server
-                       └────────────────────────────────────────────────┘
+                       │  companies · filings (ORM)      │
+                       └────────────────┬─────────────────┘
+                                        │ SQLAlchemy
+                       ┌────────────────▼─────────────────┐
+                       │  Data API — FastAPI :8000         │
+                       │  /listings  ·  /filings           │
+                       └────────────────▲─────────────────┘
+                                        │ HTTP (httpx)
+                       ┌────────────────┴─────────────────┐
+                       │  MCP Server (FastMCP, stdio)      │
+                       │  fetch tools + calc tools         │
+                       └────────────────▲─────────────────┘
+                                 stdio  │  (spawned ONLY by the gateway below —
+                                        │   nothing else launches this process)
+                       ┌────────────────┴─────────────────┐
+                       │  agentgateway :3111                │
+                       │  tool-name allowlist + audit log   │
+                       │  (config: mcp_server/gateway/*.yaml)│
+                       └──────────────┬──────┬─────────────┘
+                        http (direct) │      │ stdio (mcp-remote npx bridge)
+              ┌────────────────────────▼┐  ┌──▼──────────────────────┐
+              │ Claude Code · VS Code    │  │ Claude Desktop ·         │
+              │ Copilot · AG-UI agent    │  │ Antigravity              │
+              │ (:8001) · CLI chatbot    │  │ (config can't use http)  │
+              └────────────┬─────────────┘  └──────────────────────────┘
+                           │ AG-UI over HTTP/SSE (browser fetch — AG-UI agent only)
+                ┌──────────▼──────────────────────┐
+                │ Next.js custom chat   :3000       │
+                │ streamed text + tool chips/cards   │
+                │ + response time / token usage      │
+                └─────────────────────────────────┘
 ```
 
 **Key design choices**
 
 - The MCP server reaches data **only over the HTTP API** — the API boundary is real.
 - All maths lives in `core/calculations.py` (pure functions), reused everywhere.
-- Both chatbots are **MCP clients** to the one MCP server (`mcp_client/session.py`).
-- The AG-UI agent *is* the MCP client, wrapped as an AG-UI event stream. The browser
+- **agentgateway is the only thing that spawns the MCP server.** Every consumer
+  — Claude Code, Claude Desktop, VS Code Copilot, Antigravity, this project's own
+  AG-UI agent, and the terminal chatbot (`mcp_client.cli_chat`, same
+  `MCPToolClient` class as the AG-UI agent) — reaches it through the gateway
+  instead of launching `python -m mcp_server.server` themselves. One shared
+  tool-name allowlist and audit log instead of a separate, ungoverned entry point
+  per consumer. See "agentgateway" below for the why/how in full.
+- The AG-UI agent *is* an MCP client (`backend/mcp_client/session.py`, connects to
+  the gateway over Streamable HTTP), wrapped as an AG-UI event stream. The browser
   consumes that stream directly and renders streaming text **and** tool calls as
   live chips + cards (no chat framework — see `frontend/lib/agui.ts`).
 
@@ -66,17 +84,21 @@ MCP-SERVER/
 │   │   ├── listings/        companies table + /listings + 3 tools + seed
 │   │   ├── filings/         filings table + /filings + 2 tools + seed
 │   │   └── analytics/       tool-only: 4 calculation tools (no table)
-│   ├── data_api/        FastAPI app — auto-mounts every module router
+│   ├── data_api/        FastAPI app — auto-mounts every module router; also serves /gateway-logs
 │   ├── mcp_server/      FastMCP server — auto-registers every module's tools
-│   ├── mcp_client/      reusable MCP session + terminal chatbot
+│   │   └── gateway/         agentgateway config.yaml + setup.ps1/run.ps1 (governance + audit log)
+│   ├── mcp_client/      reusable MCP session (connects via the gateway) + terminal chatbot
 │   ├── agui_agent/      AG-UI streaming agent (FastAPI :8001)
 │   ├── requirements.txt
 │   └── .env.example
 │   └── tests/           pytest for the pure calculations
 ├── frontend/            Next.js custom AG-UI chat (streaming + generative cards)
-├── run_all.bat          one launcher: Data API + agent + frontend
-├── .mcp.json            Claude Code MCP config
-├── claude_desktop_config.example.json
+├── run_all.bat          one launcher: Data API + agentgateway + AG-UI agent + frontend
+├── .mcp.json            Claude Code MCP config (→ agentgateway)
+├── .vscode/mcp.json     VS Code Copilot MCP config (→ agentgateway)
+├── claude_desktop_config.example.json    Claude Desktop config (→ agentgateway, via mcp-remote)
+├── integrations/antigravity.mcp.example.json    Antigravity config (→ agentgateway, via mcp-remote)
+├── CLAUDE.md            guidance for Claude Code sessions working in this repo
 ├── EXPLANATION.md       full per-file walkthrough + architecture deep dive
 └── REVIEW.md            code review & gap analysis
 ```
@@ -117,6 +139,7 @@ These are **gitignored** (not in the repo) — you generate them locally:
 | `backend/stock_market.db` | `python -m core.seed --reset` (step 1) |
 | `backend/.env` | `copy .env.example .env` + add your keys |
 | `frontend/.env.local` | `copy .env.local.example .env.local` |
+| `backend/mcp_server/gateway/bin/agentgateway.exe` | `backend\mcp_server\gateway\setup.ps1` |
 
 **Two things you MUST change for your machine:**
 
@@ -151,6 +174,12 @@ python -m core.seed --reset     # build + seed SQLite
 cd ..
 ```
 
+**agentgateway** (one-time — downloads the ~86MB binary, gitignored, not committed):
+
+```powershell
+backend\mcp_server\gateway\setup.ps1
+```
+
 **Frontend** (one-time):
 
 ```powershell
@@ -165,8 +194,9 @@ cd ..
 ```powershell
 run_all.bat
 ```
-Opens three windows — **Data API :8000**, **AG-UI agent :8001**, **frontend :3000** —
-then browse to **http://localhost:3000**. Ask *"Compare JPM, BAC and WFC"* and watch
+Opens four windows — **Data API :8000**, **agentgateway :3111** (waits for it to
+be ready before continuing), **AG-UI agent :8001**, **frontend :3000** — then
+browse to **http://localhost:3000**. Ask *"Compare JPM, BAC and WFC"* and watch
 the tool chips spin, cards drop in, and the answer stream.
 
 ### Run pieces manually (equivalent commands)
@@ -175,13 +205,17 @@ the tool chips spin, cards drop in, and the answer stream.
 # Backend — Data API (Swagger at http://127.0.0.1:8000/docs)
 cd backend; .venv\Scripts\python.exe -m uvicorn data_api.main:app --port 8000
 
+# agentgateway (must be running before the two below - they connect to it)
+backend\mcp_server\gateway\run.ps1
+
 # Backend — AG-UI agent (needs LLM_API_KEY + LLM_BASE_URL in backend\.env)
 cd backend; .venv\Scripts\python.exe -m uvicorn agui_agent.main:app --port 8001
 
 # Frontend
 cd frontend; npm run dev          # -> http://localhost:3000
 
-# Terminal chatbot (alternative to the web UI; starts MCP server itself via stdio)
+# Terminal chatbot (alternative to the web UI; connects through agentgateway,
+# same as everything else - does NOT spawn the MCP server itself)
 cd backend; .venv\Scripts\python.exe -m mcp_client.cli_chat
 
 # Tests
@@ -461,13 +495,24 @@ operating_cash_flow, eps. *(8 quarters 2023Q1–2024Q4 + an FY2024 annual per co
 - **401 from the LLM** — wrong key, or `LLM_BASE_URL` overridden by an OS env var.
 - **Empty replies** — `MAX_TOKENS` too low for a reasoning model; raise it (≥2048).
 - **Tool results say "Not found" / connection refused** — the Data API (8000) isn't running.
-- **Web chat says "Can't reach the agent"** — the AG-UI agent (8001) isn't running.
-- **MCP server in Claude shows no data** — start the Data API first.
+- **Web chat / any MCP client can't reach tools, or AG-UI agent fails to start with
+  a connection error** — agentgateway (3111) isn't running, or isn't up *yet*.
+  `mcp_client/session.py` retries for ~30s before giving up, so a slow gateway
+  start is usually fine on its own; check
+  `backend\mcp_server\gateway\stdout.log` (or `http://localhost:8000/gateway-logs`
+  once the Data API is up) for what it's actually doing.
+- **`agentgateway.exe not found`** — run `backend\mcp_server\gateway\setup.ps1` once
+  (downloads the binary; it's gitignored, not committed).
 - **Reseed** — `python -m core.seed --reset`.
 - **Run tests** — `python -m pytest tests/` (from `backend/`).
-- **MCP host log says `No module named 'mcp_server'`** — the host launched the server
-  without `backend` on the import path. Fix: the `env.PYTHONPATH` must point at your
-  `…\backend` folder (all committed configs set this). Then fully quit + reopen the host.
-- **MCP server "disconnected" in Claude Desktop** — check
-  `%APPDATA%\Claude\logs\mcp-server-stock-exchange.log`; usually a wrong `command`
-  path or missing `PYTHONPATH`. Fully **Quit** from the tray (not just close) and reopen.
+- **A host (Claude Desktop especially) stops showing up in the gateway's audit
+  log** — don't assume the gateway broke; check that host's own MCP config
+  first. `claude_desktop_config.json` in particular can silently revert to a
+  direct `command: python.exe` stdio entry (bypassing the gateway entirely,
+  tools still work but invisible to the audit log) — re-add the `mcp-remote`
+  bridge entry from `claude_desktop_config.example.json` and fully **quit**
+  from the tray (not just close the window) before retrying.
+- **`mcp-remote` fails for Claude Desktop/Antigravity** — needs Node/`npx` on
+  PATH; also needs agentgateway already running at the URL in its config.
+- **Claude Code/Copilot show no tools** — same root cause as above one level up:
+  confirm agentgateway is running on :3111 before the host tries to connect.
