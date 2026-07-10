@@ -348,6 +348,30 @@ bridge instead (a tiny stdio-to-HTTP relay) — verified separately that its own
 logs go to stderr only, so it never corrupts the stdio JSON-RPC channel those
 two hosts expect.
 
+**CORS**: `policies.cors` in `config.yaml` only matters for *browser*-based
+callers — the gateway's own Playground UI (`localhost:15000`) and this
+project's own `/gateway-logs` page. Native clients (the Python `mcp` library,
+Node's `mcp-remote`) never send CORS preflight requests at all, so this
+setting has no effect on whether Claude Code/Desktop/Copilot/Antigravity can
+connect — it's purely for testing/browsing from a web page.
+
+**No cross-restart audit history**: this build of agentgateway has no
+`database`/persistent-storage option — confirmed by testing, not assumed
+(setting one in `config.yaml` fails config validation). The audit log
+(`stdout.log` / `/gateway-logs`) only covers the *current* gateway process;
+restarting it starts the trail over. If you need history that survives a
+restart, redirect/append `stdout.log` externally rather than relying on the
+gateway to do it.
+
+**Gotcha we hit for real**: if a host that was working suddenly stops showing
+up in the audit log, don't assume the gateway broke — check that host's own
+config first. `claude_desktop_config.json` in particular can get reset back to
+a direct `command: python.exe` stdio entry (e.g. if Desktop's own connector
+UI touches it), silently routing that host straight to the Python server again
+with zero governance/logging — same symptoms as a real bug (tools still work,
+just invisible to the gateway) but the fix is re-adding the `mcp-remote` entry
+above, not touching the gateway at all.
+
 ---
 
 ## Web UI features
