@@ -1,9 +1,17 @@
 # Code Review & Gap Analysis
 
-Manual review of the full project (the repo is not a git repo, so this is a
-whole-tree audit rather than a diff review). Findings are grouped by severity,
-each with status: **Fixed** in this pass, or **Noted** (acceptable for a PoC,
-listed so it's a conscious decision).
+Manual whole-tree audit of the project. Findings are grouped by severity, each
+with status: **Fixed** in this pass, or **Noted** (acceptable for a PoC, listed
+so it's a conscious decision).
+
+> **Architecture update since this review.** An **agentgateway** proxy was added
+> in front of the MCP server (config in `backend/mcp_server/gateway/`). It is now
+> the only process that spawns `python -m mcp_server.server`, and every consumer
+> (the two chatbots + all four AI hosts) reaches the server through it. This adds
+> a shared **tool-name allowlist** and a **per-call audit log** — governance that
+> the findings below predate. The repo is also now tracked in git and pushed to
+> GitHub. See `README.md` (agentgateway section) and `EXPLANATION.md` for the
+> current architecture.
 
 ## Summary
 

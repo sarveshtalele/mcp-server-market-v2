@@ -466,7 +466,7 @@ Example (`LOG_LEVEL=INFO`):
 | Tool | Type | Description |
 |------|------|-------------|
 | `get_company` | fetch | Listing details for one ticker |
-| `search_companies` | fetch | Filter by sector / board (NYSE|NASDAQ)|(NYSE|NASDAQ) |
+| `search_companies` | fetch | Filter by sector / board (NYSE\|NASDAQ) |
 | `list_sectors` | fetch | Sectors with company counts |
 | `get_filings` | fetch | Filing history (Quarterly\|Annual) — renders as a revenue/profit **trend chart** |
 | `get_latest_filing` | fetch | Most recent filing |

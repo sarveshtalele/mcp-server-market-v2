@@ -114,18 +114,37 @@ MODULE = ModuleSpec(
 )
 ```
 
-### 5. (optional) seed + run
+### 5. Allow the new tool through agentgateway (required)
+Every consumer reaches the MCP server **through agentgateway**, which enforces a
+tool-name allowlist. A tool that isn't on the list is hidden from `tools/list`
+and rejected on call — so a brand-new tool won't be callable until you add it.
+Add one rule per tool name in `backend/mcp_server/gateway/config.yaml` under
+`policies.mcpAuthorization.rules`:
+```yaml
+policies:
+  mcpAuthorization:
+    rules:
+      - 'mcp.tool.name == "get_company"'
+      # ... existing rules ...
+      - 'mcp.tool.name == "get_dividends"'   # <-- your new tool
+```
+Restart the gateway (`backend/mcp_server/gateway/run.ps1`) to pick it up.
+
+### 6. (optional) seed + run
 ```bash
 python -m core.seed --reset      # picks up your seed() automatically
 uvicorn data_api.main:app --port 8000
+# then start agentgateway (backend/mcp_server/gateway/run.ps1) — clients reach the
+# MCP server through it, not by spawning the Python server directly.
 ```
 Your endpoint is live at `/dividends/...`, and your tool appears in the MCP
-server (and therefore in the chatbots and Claude Desktop) with no other changes.
+server (and therefore in every consumer through the gateway) once whitelisted.
 
 ## Rendering a tool as a card (frontend, optional)
-Add a render-only action in `frontend/components/GenerativeUI.tsx` keyed by your
-tool name, and a component under `frontend/components/cards/`. See the existing
-`get_company` / `compare_companies` entries as templates.
+Map the tool name to a card in `frontend/components/chat/toolCards.tsx`
+(`renderToolCard` switch) and add a component under `frontend/components/cards/`.
+See the existing `get_company` / `compare_companies` cases as templates. Friendly
+tool labels for the chips/activity panel live in the same file (`TOOL_LABEL`).
 
 ## Rules of thumb
 - Tools fetch via the **HTTP API**, never the DB directly (keeps the boundary real).
