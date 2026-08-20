@@ -35,7 +35,7 @@ async def test_protocol_version_is_2026_07_28(mcp_server) -> None:
 async def test_server_identity_and_instructions(mcp_server) -> None:
     """MCP-2.4 / MCP-2.5."""
     async with connected(mcp_server) as client:
-        assert client.server_info.name == "stock-exchange"
+        assert client.server_info.name == "mcp-market-mcp-server"
         assert "ONLY source of truth" in client.instructions
         assert "synthetic" in client.instructions
 

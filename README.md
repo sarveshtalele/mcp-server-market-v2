@@ -291,7 +291,7 @@ Already configured: the repo ships [.mcp.json](.mcp.json).
 ```json
 {
   "mcpServers": {
-    "stock-exchange": {
+    "mcp-market-mcp-server": {
       "type": "http",
       "url": "http://127.0.0.1:3111/mcp"
     }
@@ -300,11 +300,11 @@ Already configured: the repo ships [.mcp.json](.mcp.json).
 ```
 
 Open Claude Code in this directory and approve the server when prompted. Verify with `/mcp` — you
-should see `stock-exchange` connected with 11 tools. To use it from another project, copy that block
+should see `mcp-market-mcp-server` connected with 11 tools. To use it from another project, copy that block
 into that project's `.mcp.json`, or register it globally:
 
 ```bash
-claude mcp add --transport http stock-exchange http://127.0.0.1:3111/mcp
+claude mcp add --transport http mcp-market-mcp-server http://127.0.0.1:3111/mcp
 ```
 
 ### 4.2 VS Code (GitHub Copilot, agent mode)
@@ -314,7 +314,7 @@ Already configured: the repo ships [.vscode/mcp.json](.vscode/mcp.json).
 ```json
 {
   "servers": {
-    "stock-exchange": {
+    "mcp-market-mcp-server": {
       "type": "http",
       "url": "http://127.0.0.1:3111/mcp"
     }
@@ -322,7 +322,7 @@ Already configured: the repo ships [.vscode/mcp.json](.vscode/mcp.json).
 }
 ```
 
-Open the folder in VS Code, then Copilot Chat → **Agent** mode → the tools icon. `stock-exchange`
+Open the folder in VS Code, then Copilot Chat → **Agent** mode → the tools icon. `mcp-market-mcp-server`
 appears in the tool picker. VS Code 1.99+ is required for `type: http`. For every workspace instead
 of just this one, put the same block in your user `settings.json` under `"mcp"`.
 
@@ -343,7 +343,7 @@ Merge in the contents of [claude_desktop_config.example.json](claude_desktop_con
 ```json
 {
   "mcpServers": {
-    "stock-exchange": {
+    "mcp-market-mcp-server": {
       "command": "npx",
       "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
     }
@@ -367,7 +367,7 @@ see [integrations/antigravity.mcp.example.json](integrations/antigravity.mcp.exa
 ```json
 {
   "mcpServers": {
-    "stock-exchange": {
+    "mcp-market-mcp-server": {
       "command": "npx",
       "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
     }
@@ -419,7 +419,7 @@ Log. Real output through the gateway:
 connected to      http://127.0.0.1:3111/mcp
 identifying as    mcp-probe
 protocol version  2026-07-28
-server            stock-exchange 2.0.0
+server            mcp-market-mcp-server 2.0.0
 
 tools (11):
   get_company

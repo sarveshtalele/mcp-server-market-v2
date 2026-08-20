@@ -145,7 +145,7 @@ export function ObservabilityRail({
                 <span>
                   <b>{TOOL_LABEL[tool.name] ?? tool.name}</b>
                   <span className="row__sub">
-                    stock-exchange{argument ? ` · ${argument}` : ""}
+                    mcp-market-mcp-server{argument ? ` · ${argument}` : ""}
                   </span>
                   {tool.status === "running" && live && live.total ? (
                     <span className="progress">
@@ -268,7 +268,7 @@ export function ObservabilityRail({
           <br />
           protocol&nbsp; = <b>{declared?.protocol_version ?? "—"}</b>
           <br />
-          policy&nbsp;&nbsp;&nbsp; = <b>stock-exchange-allowlist</b>
+          policy&nbsp;&nbsp;&nbsp; = <b>mcp-market-mcp-server-allowlist</b>
           <br />
           data&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = <b>synthetic</b>
         </div>

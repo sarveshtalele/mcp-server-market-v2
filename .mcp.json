@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "stock-exchange": {
+    "mcp-market-mcp-server": {
       "type": "http",
       "url": "http://127.0.0.1:3111/mcp"
     }

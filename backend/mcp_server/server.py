@@ -56,7 +56,7 @@ CACHE_HINTS = {
 def build_server() -> MCPServer:
     """Construct the MCP server and register every module's capabilities."""
     mcp = MCPServer(
-        name="stock-exchange",
+        name="mcp-market-mcp-server",
         title="Stock Exchange (synthetic)",
         version=settings.client_version,
         instructions=INSTRUCTIONS,
@@ -64,7 +64,7 @@ def build_server() -> MCPServer:
     )
     counts = register_all(mcp)
     log.info(
-        "MCP server 'stock-exchange' ready — %d tool module(s), %d resource module(s), "
+        "MCP server 'mcp-market-mcp-server' ready — %d tool module(s), %d resource module(s), "
         "%d prompt module(s).",
         counts["tools"],
         counts["resources"],

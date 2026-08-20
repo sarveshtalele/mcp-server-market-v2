@@ -170,7 +170,7 @@ def test_server_discover_over_http(live_server) -> None:
     assert result["resultType"] == "complete"
     assert result["ttlMs"] == 3_600_000
     assert result["cacheScope"] == "public"
-    assert result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "stock-exchange"
+    assert result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "mcp-market-mcp-server"
     assert "capabilities" in result
 
 

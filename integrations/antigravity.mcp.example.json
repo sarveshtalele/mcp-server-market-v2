@@ -1,7 +1,7 @@
 {
   "_comment": "Google Antigravity MCP config. Add via Settings -> MCP -> Add server, or paste into its mcp_config.json. Points at agentgateway on :3111 so the calls land in the shared audit log. Uses the mcp-remote bridge (needs Node/npx on PATH) since native remote MCP support is not confirmed for Antigravity. Start everything first with: python scripts/dev.py all",
   "mcpServers": {
-    "stock-exchange": {
+    "mcp-market-mcp-server": {
       "command": "npx",
       "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
     }

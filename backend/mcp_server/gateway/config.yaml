@@ -20,7 +20,7 @@ binds:
               # lets either process restart independently.
               - mcp:
                   targets:
-                    - name: stock-exchange
+                    - name: mcp-market-mcp-server
                       mcp:
                         host: http://127.0.0.1:8000/mcp
 

@@ -1,7 +1,7 @@
 {
   "//": "GitHub Copilot Chat (agent mode). Connects through agentgateway on :3111, never straight to the backend on :8000 — a direct connection would be invisible to the audit log. Start: python scripts/dev.py all",
   "servers": {
-    "stock-exchange": {
+    "mcp-market-mcp-server": {
       "type": "http",
       "url": "http://127.0.0.1:3111/mcp"
     }

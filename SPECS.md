@@ -78,7 +78,7 @@ Target revision: **`2026-07-28`**.
 | 2.1 | `server/discover` responds without any prior request | `test_protocol_conformance` |
 | 2.2 | Response contains `supportedVersions` including `"2026-07-28"` | `test_protocol_conformance` |
 | 2.3 | Response contains `capabilities` with `tools`, `resources`, `prompts` | `test_protocol_conformance` |
-| 2.4 | Response `_meta` contains `io.modelcontextprotocol/serverInfo` with name `stock-exchange` | `test_protocol_conformance` |
+| 2.4 | Response `_meta` contains `io.modelcontextprotocol/serverInfo` with name `mcp-market-mcp-server` | `test_protocol_conformance` |
 | 2.5 | Response carries the server `instructions` string unchanged | `test_protocol_conformance` |
 | 2.6 | Response carries `ttlMs` and `cacheScope` | `test_protocol_conformance` |
 

@@ -207,7 +207,7 @@ export function ControlRoomChat() {
               MCP {declared?.protocol_version ?? "…"}
             </span>
             <span className="badge">
-              {declared?.server_name ?? "stock-exchange"} v{declared?.server_version ?? "—"}
+              {declared?.server_name ?? "mcp-market-mcp-server"} v{declared?.server_version ?? "—"}
             </span>
 
           </div>
