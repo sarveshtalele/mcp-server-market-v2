@@ -1,4 +1,5 @@
 """FastAPI router for the listings module (mounted at /listings)."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query

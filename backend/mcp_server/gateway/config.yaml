@@ -1,18 +1,43 @@
+# agentgateway — the single chokepoint every MCP consumer passes through.
+#
+# Claude Desktop, Claude Code, VS Code Copilot, Antigravity and this project's
+# own web agent all connect to :3111, never to the backend's /mcp directly.
+# That is the only reason a tool call made inside a Claude Desktop chat can show
+# up in the same audit view as one made from the web UI.
+#
+# Start it with:  python scripts/dev.py gateway
+# Requires agentgateway >= 1.4.1 (1.4 added MCP 2026-07-28 support).
+
 binds:
   - port: 3111
     listeners:
       - routes:
           - backends:
+              # The backend serves MCP over Streamable HTTP at :8000/mcp.
+              # It used to be spawned here as a stdio child, which meant this
+              # file carried absolute interpreter paths and only worked on one
+              # machine. Targeting it over HTTP makes the config portable and
+              # lets either process restart independently.
               - mcp:
                   targets:
                     - name: stock-exchange
-                      stdio:
-                        cmd: "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend\\.venv\\Scripts\\python.exe"
-                        args: ["-m", "mcp_server.server"]
-                        env:
-                          DATA_API_BASE_URL: "http://127.0.0.1:8000"
-                          PYTHONPATH: "C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend"
+                      mcp:
+                        host: http://127.0.0.1:8000/mcp
+
+                # ---------------------------------------------------------
+                # Previous stdio target, kept for one release so reverting is
+                # a two-line edit (see IMPLEMENTATION_PLAN.md C.7):
+                #
+                #   - stdio:
+                #       cmd: "<absolute path to python>"
+                #       args: ["-m", "mcp_server.server"]
+                # ---------------------------------------------------------
+
                 policies:
+                  # Tool allowlist. This is the governance surface: adding a
+                  # tool to the server does NOT make it callable until it is
+                  # listed here. Keep in sync with the nine tools the server
+                  # exposes — tests/test_observability.py asserts they match.
                   mcpAuthorization:
                     rules:
                       - 'mcp.tool.name == "get_company"'
@@ -24,37 +49,29 @@ binds:
                       - 'mcp.tool.name == "calc_revenue_growth"'
                       - 'mcp.tool.name == "compare_companies"'
                       - 'mcp.tool.name == "sector_ranking"'
+                      - 'mcp.tool.name == "list_market_resources"'
+                      - 'mcp.tool.name == "read_market_resource"'
+
             policies:
               cors:
-                # Allow all origins so native (non-browser) clients such as
-                # Claude Desktop's mcp-remote bridge, Antigravity IDE's HTTP
-                # client, and the Python mcp library can connect without CORS
-                # rejections. All traffic is localhost-only so "*" is safe here.
+                # Explicit origins only. This affects browser callers (the
+                # gateway playground, the Next.js UI); native clients such as
+                # Claude Desktop send no preflight at all, so CORS has no
+                # bearing on whether they can connect.
                 allowOrigins:
-                  - "http://localhost:15000"
                   - "http://localhost:3000"
-                  - "http://localhost:3001"
                   - "http://127.0.0.1:3000"
+                  - "http://localhost:15000"
                   - "http://127.0.0.1:15000"
-                  - "*"
                 allowHeaders:
                   - "content-type"
-                  - "mcp-session-id"
-                  - "authorization"
                   - "accept"
+                  - "authorization"
                   - "mcp-protocol-version"
-                allowMethods: ["GET", "POST", "DELETE", "OPTIONS"]
-                exposeHeaders: ["mcp-session-id"]
-                # allowCredentials cannot be true when allowOrigins contains "*";
-                # set it only for specific origins. Leave false for wildcard.
+                  - "mcp-method"
+                  - "mcp-name"
+                # No mcp-session-id: sessions were removed from the transport
+                # in the 2026-07-28 revision, so allowing or exposing that
+                # header would be advertising something that no longer exists.
+                allowMethods: ["GET", "POST", "OPTIONS"]
                 allowCredentials: false
-
-# Persist every MCP call to a local SQLite file so the gateway UI dashboard
-# shows full call history across restarts, not just the current live session.
-# NOTE: 'database' is not supported by this build of agentgateway.
-# database:
-#   url: "sqlite:///C:\\Users\\SarveshTalele\\Downloads\\MCP-SERVER\\backend\\mcp_server\\gateway\\gateway_audit.db"
-
-# logging:
-#   level: info
-#   format: text

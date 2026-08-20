@@ -1,5 +1,5 @@
 {
-  "_comment": "Google Antigravity MCP config. Add via Antigravity Settings -> MCP -> Add server (or paste into its mcp_config.json). Connects through agentgateway (governance + audit logging in front of the MCP server) via the 'mcp-remote' bridge (npx), since native remote/http MCP server support isn't confirmed for Antigravity. Start, in order: Data API (uvicorn data_api.main:app --port 8000), then agentgateway (backend/mcp_server/gateway/ — see README 'agentgateway'). Requires Node/npx on PATH.",
+  "_comment": "Google Antigravity MCP config. Add via Settings -> MCP -> Add server, or paste into its mcp_config.json. Points at agentgateway on :3111 so the calls land in the shared audit log. Uses the mcp-remote bridge (needs Node/npx on PATH) since native remote MCP support is not confirmed for Antigravity. Start everything first with: python scripts/dev.py all",
   "mcpServers": {
     "stock-exchange": {
       "command": "npx",

@@ -2,16 +2,13 @@
 
 import dynamic from "next/dynamic";
 
-// Browser-only app shell (streams from the AG-UI agent, uses localStorage).
-const AppShell = dynamic(
-  () => import("@/components/chat/AppShell").then((m) => m.AppShell),
-  { ssr: false, loading: () => <div className="chat-loading">Loading…</div> },
+// Browser-only: streams from the AG-UI agent and persists conversations in
+// localStorage, neither of which exists during server rendering.
+const ControlRoomChat = dynamic(
+  () => import("@/components/chat/ControlRoomChat").then((m) => m.ControlRoomChat),
+  { ssr: false, loading: () => <div className="chat-loading">Loading Control Room…</div> },
 );
 
-export default function Home() {
-  return (
-    <main className="app">
-      <AppShell />
-    </main>
-  );
+export default function ChatPage() {
+  return <ControlRoomChat />;
 }

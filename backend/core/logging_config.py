@@ -7,6 +7,7 @@ The log level is read from the ``LOG_LEVEL`` env var (default ``INFO``). Set
 ``LOG_LEVEL=DEBUG`` for verbose, developer-friendly tracing of requests, tool
 calls and timings.
 """
+
 from __future__ import annotations
 
 import logging

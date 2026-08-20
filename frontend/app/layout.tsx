@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
+import { NavRail } from "@/components/shell/NavRail";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Stock Exchange Copilot",
-  description: "Streaming AG-UI chatbot for a stock exchange",
+  title: "Enterprise MCP Control Room",
+  description:
+    "Operations console for an MCP 2026-07-28 market-intelligence agent, with cross-host call observability.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <div className="shell">
+          <NavRail />
+          <main className="workspace">{children}</main>
+        </div>
+      </body>
     </html>
   );
 }

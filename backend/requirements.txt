@@ -4,21 +4,19 @@ uvicorn[standard]>=0.30
 
 # --- Data layer ---
 SQLAlchemy>=2.0
-pydantic>=2.7
+# MCP SDK v2 requires pydantic >= 2.12.
+pydantic>=2.12
 pydantic-settings>=2.3
 Faker>=25.0
 
-# --- HTTP client (MCP server -> Data API) ---
-httpx>=0.27
+# --- MCP (server + client), protocol revision 2026-07-28 ---
+# v2 is a breaking rewrite of v1: MCPServer replaces FastMCP, the unified
+# Client replaces ClientSession + streamablehttp_client, attributes are
+# snake_case, and httpx2 replaces httpx. Do not relax this floor.
+mcp>=2.0,<3
 
-# --- MCP (server + client) ---
-mcp>=1.2.0
-
-# --- AG-UI protocol (agent <-> CopilotKit) ---
+# --- AG-UI protocol (agent <-> web chat) ---
 ag-ui-protocol>=0.1.7
 
 # --- LLM (OpenAI-compatible client; targets a LiteLLM proxy) ---
 openai>=1.40
-
-# --- Tests (dev) ---
-pytest>=8.0

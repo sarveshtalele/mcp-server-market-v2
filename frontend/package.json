@@ -1,8 +1,8 @@
 {
-  "name": "stock-exchange-copilot",
+  "name": "mcp-control-room",
   "version": "1.0.0",
   "private": true,
-  "description": "Custom AG-UI streaming chatbot for a stock exchange PoC",
+  "description": "Enterprise MCP Control Room \u2014 chat, MCP server status and cross-host audit log",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",

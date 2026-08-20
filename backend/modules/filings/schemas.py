@@ -1,4 +1,5 @@
 """Pydantic response schema for the filings module."""
+
 from __future__ import annotations
 
 from datetime import date

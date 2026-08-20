@@ -1,3 +1,5 @@
+> **Superseded.** This document describes the pre-migration architecture (separate Data API on :8000, AG-UI agent on :8001, MCP server as a stdio child of the gateway). It is kept for history. For how the project works now see [README.md](README.md) and [CLAUDE.md](CLAUDE.md).
+
 # Code Review & Gap Analysis
 
 Manual whole-tree audit of the project. Findings are grouped by severity, each

@@ -7,6 +7,7 @@ MCP server and the AG-UI agent reuse identical logic.
 All ratios are rounded to 4 decimals; percentages are expressed as percent
 values (e.g. 12.34 == 12.34%).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -51,9 +52,7 @@ def financial_ratios(company: dict[str, Any], filing: dict[str, Any]) -> dict[st
         },
         "efficiency": {
             "asset_turnover": _ratio(revenue, assets),
-            "operating_cash_flow_margin_pct": _pct(
-                filing["operating_cash_flow"], revenue
-            ),
+            "operating_cash_flow_margin_pct": _pct(filing["operating_cash_flow"], revenue),
         },
         "per_share": {
             "eps": round(filing["eps"], 4),
@@ -88,13 +87,9 @@ def revenue_growth(filings: list[dict[str, Any]]) -> dict[str, Any]:
         "latest_revenue": latest["revenue"],
         "latest_net_profit": latest["net_profit"],
         "revenue_qoq_pct": _pct(latest["revenue"] - prev["revenue"], prev["revenue"]),
-        "net_profit_qoq_pct": _pct(
-            latest["net_profit"] - prev["net_profit"], prev["net_profit"]
-        ),
+        "net_profit_qoq_pct": _pct(latest["net_profit"] - prev["net_profit"], prev["net_profit"]),
         "revenue_yoy_pct": (
-            _pct(latest["revenue"] - year_ago["revenue"], year_ago["revenue"])
-            if year_ago
-            else None
+            _pct(latest["revenue"] - year_ago["revenue"], year_ago["revenue"]) if year_ago else None
         ),
         "net_profit_yoy_pct": (
             _pct(latest["net_profit"] - year_ago["net_profit"], year_ago["net_profit"])
@@ -163,9 +158,7 @@ def _format_metric_value(metric: str, raw: float) -> float:
     return round(raw, 2)
 
 
-def sector_ranking(
-    companies: list[dict[str, Any]], metric: str, top_n: int = 5
-) -> dict[str, Any]:
+def sector_ranking(companies: list[dict[str, Any]], metric: str, top_n: int = 5) -> dict[str, Any]:
     """Rank companies in a sector by a chosen metric (descending)."""
     if metric not in _METRIC_UNITS:
         return {"error": f"metric must be one of {sorted(_METRIC_UNITS)}"}

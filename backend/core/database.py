@@ -1,4 +1,5 @@
 """SQLAlchemy engine, session factory and declarative Base."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -9,9 +10,7 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from core.config import settings
 
 # `check_same_thread` only needed for SQLite + multi-threaded servers (uvicorn).
-_connect_args = (
-    {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-)
+_connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 
 engine = create_engine(
     settings.database_url,

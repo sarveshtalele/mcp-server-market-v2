@@ -1,4 +1,5 @@
 """ORM model(s) for the filings module."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -13,14 +14,10 @@ class Filing(Base):
     """A periodic financial filing for a company (quarter or year)."""
 
     __tablename__ = "filings"
-    __table_args__ = (
-        UniqueConstraint("symbol", "fiscal_period", "filing_type", name="uq_filing"),
-    )
+    __table_args__ = (UniqueConstraint("symbol", "fiscal_period", "filing_type", name="uq_filing"),)
 
     filing_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    symbol: Mapped[str] = mapped_column(
-        ForeignKey("companies.symbol"), nullable=False, index=True
-    )
+    symbol: Mapped[str] = mapped_column(ForeignKey("companies.symbol"), nullable=False, index=True)
     filing_type: Mapped[str] = mapped_column(String(24), nullable=False)  # Quarterly|Annual
     fiscal_period: Mapped[str] = mapped_column(String(12), nullable=False)  # 2024Q3
     filing_date: Mapped[date] = mapped_column(Date, nullable=False)

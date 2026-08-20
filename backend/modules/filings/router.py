@@ -1,4 +1,5 @@
 """FastAPI router for the filings module (mounted at /filings)."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query

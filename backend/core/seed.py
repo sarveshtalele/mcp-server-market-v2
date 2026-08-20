@@ -7,6 +7,7 @@ automatically.
     python -m core.seed            # create tables + seed empty modules
     python -m core.seed --reset    # drop everything and reseed
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,6 +25,11 @@ random.seed(SEED)
 
 
 def seed(reset: bool = False) -> None:
+    # Re-apply the seed on every call, not just at import: two runs in one
+    # process must produce the same rows as two separate processes do.
+    Faker.seed(SEED)
+    random.seed(SEED)
+
     if reset:
         # discover first so all tables are known to metadata before dropping
         discover_modules()

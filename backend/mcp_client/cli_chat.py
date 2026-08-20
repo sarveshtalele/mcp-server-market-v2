@@ -5,8 +5,10 @@ Quick way to test the MCP server without the web frontend:
     python -m mcp_client.cli_chat
 
 Talks to the OpenAI-compatible proxy configured in backend/.env
-(ANTHROPIC_API_KEY + ANTHROPIC_BASE_URL).
+(LLM_API_KEY + LLM_BASE_URL), and reaches the MCP server through agentgateway
+so its calls land in the same audit log as every other consumer.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -74,9 +76,7 @@ async def run_turn(
                 args = {}
             print(f"  [tool] {tc.function.name}({args})")
             result = await client.call_tool(tc.function.name, args)
-            messages.append(
-                {"role": "tool", "tool_call_id": tc.id, "content": result}
-            )
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
     return "(stopped: too many tool rounds)"
 
 
@@ -93,9 +93,7 @@ async def main() -> None:
     if not settings.llm_api_key or not settings.openai_base_url:
         raise SystemExit("Set LLM_API_KEY and LLM_BASE_URL in backend/.env.")
 
-    llm = AsyncOpenAI(
-        api_key=settings.llm_api_key, base_url=settings.openai_base_url
-    )
+    llm = AsyncOpenAI(api_key=settings.llm_api_key, base_url=settings.openai_base_url)
     client = MCPToolClient()
     await client.connect()
     print(f"Connected to MCP server. Tools: {', '.join(client.tool_names)}")

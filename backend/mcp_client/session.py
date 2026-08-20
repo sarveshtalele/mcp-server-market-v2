@@ -1,103 +1,177 @@
-"""Reusable MCP client session.
+"""Reusable MCP client session (protocol 2026-07-28).
 
-Connects to the stock-exchange MCP server through agentgateway (Streamable
-HTTP, see `backend/mcp_server/gateway/config.yaml`) rather than spawning
-`python -m mcp_server.server` directly — the gateway is what actually spawns
-that process, and adds a tool-name allowlist + a per-call audit log in front
-of it for every consumer, not just this one. Start the gateway first (see
-README "agentgateway"); this client just needs it reachable at
-`settings.mcp_gateway_url`.
+Connects to the stock-exchange MCP server **through agentgateway**, never
+directly to the backend's ``/mcp``. The extra hop out to :3111 and back is
+deliberate: it is what puts this project's own tool calls in the same audit log
+as calls made from Claude Desktop or an IDE. See CLAUDE.md invariant #7.
 
-Discovers tools and adapts them to the OpenAI function-calling schema. Used by
-both the CLI chatbot and the AG-UI agent, so the "MCP client calls MCP server"
-path is shared. Tool calls are serialised by a lock because the session is
-shared across concurrent requests.
+Two things changed with the 2026-07-28 revision and SDK v2:
+
+* **No handshake, no session.** Every request carries its own protocol version,
+  client identity and capabilities in ``_meta``. There is nothing to initialise.
+* **No lock.** The old client serialised every call behind an ``asyncio.Lock``
+  because one long-lived ``ClientSession`` was shared across concurrent web
+  requests. With no session to share, calls run concurrently.
+
+Connection is **lazy**: the gateway forwards to this same backend process, so
+connecting at startup would deadlock a cold start. The first tool call connects.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 from contextlib import AsyncExitStack
 from typing import Any
-from urllib.parse import urlparse
 
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp import Client, Implementation
 
-from core.config import settings
+from core.config import PROTOCOL_VERSION, settings
 from core.logging_config import get_logger
 
 _log = get_logger("mcp_client")
 
 
-async def _wait_for_port(url: str, retries: int, delay: float) -> None:
-    """Poll a raw TCP connection until `url`'s host:port accepts one.
+class MCPClientError(RuntimeError):
+    """Raised when the MCP server cannot be reached or a call fails."""
 
-    Deliberately a plain socket probe, not an MCP handshake attempt: the
-    Streamable HTTP client's anyio task group doesn't tolerate being retried
-    after a failed connect (its cancel-scope teardown assumes it's only ever
-    entered/exited once) — retrying *that* directly turns one clean
-    "connection refused" into a second, uglier crash on cleanup. Probing with
-    a bare socket first means the real MCP connection attempt below only
-    ever runs once the gateway is actually accepting connections.
+
+def _root_cause(exc: BaseException) -> str:
+    """Unwrap nested ExceptionGroups down to the message that explains it."""
+    while isinstance(exc, BaseExceptionGroup) and exc.exceptions:
+        exc = exc.exceptions[0]
+    return f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+
+
+async def _quietly_close(stack: AsyncExitStack) -> None:
+    """Close a partially-opened stack without masking the original failure."""
+    try:
+        await stack.aclose()
+    except BaseException:  # noqa: BLE001 - teardown noise is not the real error
+        pass
+
+
+def request_meta(conversation_id: str | None = None) -> dict[str, Any]:
+    """Per-request ``_meta`` additions.
+
+    MCP defines no conversation identifier — no revision ever has. Only a client
+    we control can supply one, and the W3C ``baggage`` key is the slot the spec
+    reserves for exactly this sort of correlation data. External hosts leave it
+    empty, and the audit log shows ``n/a`` rather than inventing a thread.
     """
-    host = urlparse(url).hostname or "127.0.0.1"
-    port = urlparse(url).port or 80
-    last_exc: OSError | None = None
-    for attempt in range(1, retries + 1):
-        try:
-            _, writer = await asyncio.open_connection(host, port)
-            writer.close()
-            await writer.wait_closed()
-            return
-        except OSError as exc:
-            last_exc = exc
-            if attempt < retries:
-                _log.warning(
-                    "MCP gateway not reachable yet at %s:%d (attempt %d/%d) - retrying in %.0fs",
-                    host, port, attempt, retries, delay,
-                )
-                await asyncio.sleep(delay)
-    raise RuntimeError(
-        f"MCP gateway at {host}:{port} not reachable after {retries} attempts"
-    ) from last_exc
+    if not conversation_id:
+        return {}
+    return {"baggage": f"conversationId={conversation_id}"}
 
 
 class MCPToolClient:
-    """Manages a Streamable HTTP connection (via agentgateway) to the stock-exchange MCP server."""
+    """Talks to the stock-exchange MCP server through agentgateway."""
 
-    def __init__(self) -> None:
-        self._session: ClientSession | None = None
+    def __init__(self, url: str | None = None) -> None:
+        self.url = url or settings.mcp_gateway_url
+        self._client: Client | None = None
         self._stack: AsyncExitStack | None = None
         self._tools: list[Any] = []
-        self._lock = asyncio.Lock()
+        # Guards connection setup only — not tool execution. Concurrent callers
+        # must not each open their own client, but once connected they run in
+        # parallel.
+        self._connect_lock = asyncio.Lock()
 
-    async def connect(self, retries: int = 30, retry_delay: float = 1.0) -> None:
-        """Connect to the MCP server through agentgateway and initialise the session.
+    @property
+    def client_info(self) -> Implementation:
+        return Implementation(name=settings.client_name, version=settings.client_version)
 
-        Waits for the gateway's port to be reachable first — when everything
-        is launched together (e.g. `run_all.bat`), the gateway may take a
-        moment to bind its port, and without this a normal startup race would
-        crash this process instead of just waiting for it.
-        """
-        await _wait_for_port(settings.mcp_gateway_url, retries, retry_delay)
-        self._stack = AsyncExitStack()
-        read, write, _get_session_id = await self._stack.enter_async_context(
-            streamablehttp_client(settings.mcp_gateway_url)
-        )
-        self._session = await self._stack.enter_async_context(ClientSession(read, write))
-        await self._session.initialize()
-        self._tools = (await self._session.list_tools()).tools
+    async def connect(self) -> None:
+        """Open the connection and cache the tool list (idempotent)."""
+        async with self._connect_lock:
+            if self._client is not None:
+                return
+            stack = AsyncExitStack()
+            try:
+                client = await stack.enter_async_context(
+                    Client(
+                        self.url,
+                        client_info=self.client_info,
+                        # Pin the revision: this project is 2026-07-28 only, so a
+                        # silent downgrade would be a bug, not a convenience.
+                        mode=PROTOCOL_VERSION,
+                        raise_exceptions=True,
+                    )
+                )
+                # Inside the try on purpose: the transport connects lazily, so a
+                # dead endpoint only fails here, on the first real request.
+                listing = await client.list_tools()
+            except (KeyboardInterrupt, SystemExit):
+                await _quietly_close(stack)
+                raise
+            except BaseException as exc:
+                # A failed connect surfaces as an anyio ExceptionGroup, which is
+                # a BaseExceptionGroup and therefore not caught by `except
+                # Exception`. Catch broadly, then re-raise the two things that
+                # must never be swallowed (above).
+                await _quietly_close(stack)
+                raise MCPClientError(
+                    f"Cannot reach the MCP server at {self.url}: "
+                    f"{_root_cause(exc)}. If this is the gateway URL, start "
+                    "agentgateway (see README) — every consumer goes through it "
+                    "so that all calls are audited."
+                ) from exc
+            self._stack = stack
+            self._client = client
+            self._tools = list(listing.tools)
+            _log.info(
+                "MCP connected via %s — protocol %s, %d tool(s)",
+                self.url,
+                client.protocol_version,
+                len(self._tools),
+            )
+
+    async def ensure_connected(self) -> Client:
+        if self._client is None:
+            await self.connect()
+        assert self._client is not None
+        return self._client
+
+    @property
+    def connected(self) -> bool:
+        return self._client is not None
+
+    @property
+    def protocol_version(self) -> str | None:
+        return self._client.protocol_version if self._client else None
+
+    @property
+    def server_info(self) -> Any:
+        return self._client.server_info if self._client else None
 
     @property
     def tool_names(self) -> list[str]:
         return [t.name for t in self._tools]
 
-    def openai_tools(self) -> list[dict]:
-        """Return tool definitions in the OpenAI function-calling format.
+    async def capabilities(self) -> dict:
+        """Capability surface for the UI, from one connection."""
+        client = await self.ensure_connected()
+        resources = await client.list_resources()
+        templates = await client.list_resource_templates()
+        prompts = await client.list_prompts()
+        info = client.server_info
+        return {
+            "protocol_version": client.protocol_version,
+            "server_name": getattr(info, "name", None),
+            "server_version": getattr(info, "version", None),
+            "instructions": client.instructions,
+            "tools": self.tool_names,
+            "resources": [r.uri for r in resources.resources],
+            "resource_templates": [t.uri_template for t in templates.resource_templates],
+            "prompts": [p.name for p in prompts.prompts],
+            "gateway_url": self.url,
+        }
 
-        The LiteLLM proxy is OpenAI-compatible, so this is the schema both the
-        AG-UI agent and the CLI chatbot use.
+    def openai_tools(self) -> list[dict]:
+        """Tool definitions in the OpenAI function-calling format.
+
+        Attribute names are snake_case under SDK v2 (``input_schema``); the wire
+        format is unchanged.
         """
         return [
             {
@@ -105,41 +179,42 @@ class MCPToolClient:
                 "function": {
                     "name": t.name,
                     "description": (t.description or "").strip(),
-                    "parameters": t.inputSchema
-                    or {"type": "object", "properties": {}},
+                    "parameters": t.input_schema or {"type": "object", "properties": {}},
                 },
             }
             for t in self._tools
         ]
 
-    async def call_tool(self, name: str, arguments: dict) -> str:
-        """Invoke an MCP tool and return its result as a JSON string.
+    async def call_tool(
+        self,
+        name: str,
+        arguments: dict,
+        *,
+        conversation_id: str | None = None,
+        progress_callback: Any = None,
+    ) -> str:
+        """Invoke a tool and return its result as a JSON string.
 
-        FastMCP serialises a tool that returns a *list* as one TextContent
-        block per element (not a single JSON array), so we reassemble:
-          * structuredContent, if the server provided it; else
-          * a single block -> its JSON; else
-          * many blocks -> a JSON array of the parsed blocks.
+        The SDK serialises a tool returning a *list* as one text block per
+        element (with ``structuredContent`` alongside), while a plain ``dict``
+        comes back as a single text block and no structured content. Both shapes
+        are reassembled here into one JSON payload for the LLM.
         """
-        if self._session is None:
-            raise RuntimeError("MCPToolClient.connect() not called")
+        client = await self.ensure_connected()
         _log.debug("call_tool %s args=%s", name, arguments)
-        # Serialise: the stdio session is shared across concurrent requests.
-        async with self._lock:
-            result = await self._session.call_tool(name, arguments)
+        result = await client.call_tool(
+            name,
+            arguments,
+            progress_callback=progress_callback,
+            meta=request_meta(conversation_id) or None,
+        )
 
-        # Prefer structured content when the server supplies it.
-        structured = getattr(result, "structuredContent", None)
+        structured = getattr(result, "structured_content", None)
         if isinstance(structured, dict):
-            # FastMCP wraps non-dict returns under "result".
             payload = structured.get("result", structured)
-            return json.dumps(payload, separators=(",", ":"))
+            return json.dumps(payload, separators=(",", ":"), default=str)
 
-        parts: list[str] = [
-            block.text
-            for block in result.content
-            if getattr(block, "text", None) is not None
-        ]
+        parts = [block.text for block in result.content if getattr(block, "text", None) is not None]
         if not parts:
             return "{}"
         if len(parts) == 1:
@@ -147,23 +222,41 @@ class MCPToolClient:
                 return json.dumps(json.loads(parts[0]), separators=(",", ":"))
             except (json.JSONDecodeError, TypeError):
                 return parts[0]
-
-        # Multiple blocks: try to parse each as JSON and emit a single array.
         try:
             items = [json.loads(p) for p in parts]
             return json.dumps(items, separators=(",", ":"))
         except (json.JSONDecodeError, TypeError):
             return "\n".join(parts)
 
+    async def read_resource(self, uri: str, *, conversation_id: str | None = None) -> str:
+        """Read an MCP resource and return its text payload."""
+        client = await self.ensure_connected()
+        result = await client.read_resource(uri, meta=request_meta(conversation_id) or None)
+        parts = [
+            getattr(block, "text", None)
+            for block in result.contents
+            if getattr(block, "text", None) is not None
+        ]
+        return "\n".join(p for p in parts if p) or "{}"
+
+    async def get_prompt(self, name: str, arguments: dict[str, str] | None = None) -> str:
+        """Render a server-declared prompt to text."""
+        client = await self.ensure_connected()
+        result = await client.get_prompt(name, arguments or {})
+        chunks = []
+        for message in result.messages:
+            text = getattr(message.content, "text", None)
+            if text:
+                chunks.append(text)
+        return "\n\n".join(chunks)
+
     async def close(self) -> None:
-        if self._stack is None:
+        stack, self._stack = self._stack, None
+        self._client = None
+        self._tools = []
+        if stack is None:
             return
         try:
-            await self._stack.aclose()
-        except BaseException:  # noqa: BLE001 - benign anyio stdio teardown noise
-            # anyio stdio teardown can raise a cancel-scope/GeneratorExit error
-            # during shutdown; the subprocess still exits.
+            await stack.aclose()
+        except BaseException:  # noqa: BLE001 - benign anyio teardown noise
             pass
-        finally:
-            self._stack = None
-            self._session = None

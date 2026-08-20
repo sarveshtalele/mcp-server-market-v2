@@ -1,0 +1,30 @@
+[project]
+name = "mcp-server-market"
+version = "2.0.0"
+# 3.11+ : the code uses BaseExceptionGroup, a 3.11 builtin, to unwrap the
+# ExceptionGroups anyio raises on a failed connect. The MCP SDK itself allows
+# 3.10, so this floor is ours, not the SDK's.
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "B008",   # FastAPI's Depends()/Query() in defaults is the framework idiom
+    "SIM105", # contextlib.suppress is not always clearer than try/except/pass
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+    "gateway: needs a running agentgateway (set MCP_GATEWAY_URL); skipped by default",
+    "llm: needs a real LLM proxy (LLM_API_KEY + LLM_BASE_URL); skipped by default",
+]

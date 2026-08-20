@@ -1,4 +1,5 @@
 """Data-access for the listings module (all company queries live here)."""
+
 from __future__ import annotations
 
 from sqlalchemy import func, select

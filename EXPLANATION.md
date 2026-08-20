@@ -1,3 +1,5 @@
+> **Superseded.** This document describes the pre-migration architecture (separate Data API on :8000, AG-UI agent on :8001, MCP server as a stdio child of the gateway). It is kept for history. For how the project works now see [README.md](README.md) and [CLAUDE.md](CLAUDE.md).
+
 # Project Explanation — Stock Exchange MCP Stack
 
 Explains the **whole project end to end** and what **every file** does. Read the

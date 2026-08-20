@@ -1,4 +1,5 @@
 """Unit tests for the pure financial calculations (no DB / network)."""
+
 from __future__ import annotations
 
 from core import calculations as calc
@@ -83,10 +84,14 @@ def test_sector_ranking_orders_and_validates():
 
 def test_compare_companies_highlights():
     rows = [
-        {"company": {**COMPANY, "symbol": "A", "market_cap": 5.0, "pe_ratio": 20.0},
-         "filing": _filing("2024Q4", 1000, 300)},
-        {"company": {**COMPANY, "symbol": "B", "market_cap": 9.0, "pe_ratio": 8.0},
-         "filing": _filing("2024Q4", 1000, 100)},
+        {
+            "company": {**COMPANY, "symbol": "A", "market_cap": 5.0, "pe_ratio": 20.0},
+            "filing": _filing("2024Q4", 1000, 300),
+        },
+        {
+            "company": {**COMPANY, "symbol": "B", "market_cap": 9.0, "pe_ratio": 8.0},
+            "filing": _filing("2024Q4", 1000, 100),
+        },
     ]
     out = calc.compare_companies(rows)
     assert out["highlights"]["largest_by_market_cap"] == "B"

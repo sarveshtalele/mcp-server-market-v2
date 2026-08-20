@@ -4,6 +4,7 @@ Depends on the listings module (companies must exist first — enforced by
 ModuleSpec.priority). Generates 8 quarters + one annual filing per company,
 using each company's net-margin band from the listings universe.
 """
+
 from __future__ import annotations
 
 import random

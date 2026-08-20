@@ -1,66 +1,63 @@
-"""Declarative API-endpoint -> MCP-tool binding.
+"""Declarative data-tool binding.
 
-Instead of hand-writing a function per tool, a module lists its endpoints as
-``EndpointTool`` specs. ``register_endpoint_tools`` turns each spec into an MCP
-tool that calls exactly one Data API endpoint. This makes the
-"one MCP tool per API endpoint" mapping explicit and removes boilerplate.
+A module lists its data tools as ``DataTool`` specs -- a name, a description and
+a plain typed function from ``core.data``. ``register_data_tools`` wraps each one
+with uniform error handling and registers it on the MCP server.
 
-Everything still goes through the single Data API base URL (one port); the spec
-only carries the **path** (e.g. ``/listings/companies/{symbol}``).
+Two properties matter here:
+
+* **No dynamic code.** The previous implementation generated Python source and
+  ran it through ``exec()`` so the schema could be inferred from a synthesised
+  signature. The functions are now real, typed and importable; the SDK derives
+  the JSON Schema from their annotations. ``tests/test_no_exec.py`` enforces it.
+* **Sync on purpose.** These functions do blocking SQLAlchemy work. Declared as
+  plain ``def``, the SDK runs them on a worker thread, keeping the event loop
+  free. Async tools (see ``modules/analytics``) are for concurrent fan-out.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import functools
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from mcp.server.fastmcp import FastMCP
+from core.errors import DataError
 
-from mcp_server.api_client import DataAPIClient, DataAPIError
+if TYPE_CHECKING:
+    from mcp.server import MCPServer
 
 
-@dataclass
-class EndpointTool:
-    """Binds one MCP tool name to one Data API endpoint."""
+@dataclass(frozen=True)
+class DataTool:
+    """Binds one MCP tool name to one typed data function."""
 
     name: str
     description: str
-    path: str  # may contain {placeholders} that match path_params
-    path_params: list[str] = field(default_factory=list)  # required, str
-    query_params: list[str] = field(default_factory=list)  # optional, str|None
+    fn: Callable[..., Any]
 
 
-def _build(spec: EndpointTool, api: DataAPIClient):
-    """Create a properly-typed async function for FastMCP from a spec.
+def with_data_errors(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Turn a ``DataError`` into a normal ``{"error": ...}`` tool result.
 
-    We generate real source so FastMCP can infer the parameter schema (it reads
-    the function signature). The function calls a single endpoint.
+    A missing ticker is an ordinary answer ("no such company"), not a protocol
+    failure, so it must not surface as a JSON-RPC error.
     """
-    params = [f"{p}: str" for p in spec.path_params]
-    params += [f"{q}: str | None = None" for q in spec.query_params]
-    sig = ", ".join(params)
 
-    if spec.query_params:
-        qbuild = "{" + ", ".join(f"{q!r}: {q}" for q in spec.query_params) + "}"
-    else:
-        qbuild = "None"
+    @functools.wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return fn(*args, **kwargs)
+        except DataError as exc:
+            return {"error": str(exc)}
 
-    src = (
-        f"async def {spec.name}({sig}):\n"
-        f"    try:\n"
-        f"        return await _api.get(f{spec.path!r}, {qbuild})\n"
-        f"    except _DataAPIError as e:\n"
-        f"        return {{'error': str(e)}}\n"
-    )
-    ns: dict = {"_api": api, "_DataAPIError": DataAPIError}
-    exec(src, ns)  # noqa: S102 - controlled, module-authored template
-    fn = ns[spec.name]
-    fn.__doc__ = spec.description
-    return fn
+    return wrapper
 
 
-def register_endpoint_tools(
-    mcp: FastMCP, api: DataAPIClient, specs: list[EndpointTool]
-) -> None:
-    """Register every endpoint spec as an MCP tool."""
+def register_data_tools(mcp: MCPServer, specs: list[DataTool]) -> None:
+    """Register every spec as an MCP tool, in the order given."""
     for spec in specs:
-        fn = _build(spec, api)
-        mcp.tool(name=spec.name, description=spec.description)(fn)
+        handler = with_data_errors(spec.fn)
+        handler.__name__ = spec.name
+        handler.__doc__ = spec.description
+        mcp.tool(name=spec.name, description=spec.description)(handler)

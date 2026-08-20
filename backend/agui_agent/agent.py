@@ -2,21 +2,25 @@
 
 Bridges three things:
   * An OpenAI-compatible LLM (a LiteLLM proxy) for reasoning + streaming text
-  * The MCP server (tools, via MCPToolClient)
+  * The MCP server (tools, via MCPToolClient, through the gateway)
   * The AG-UI protocol (events the frontend understands)
 
 For each user run it emits:
   RUN_STARTED
     -> [TEXT_MESSAGE_START / CONTENT* / END]      (streamed assistant text)
     -> [TOOL_CALL_START / ARGS / END / RESULT]*    (tool calls -> generative UI)
+    -> CUSTOM "progress"                           (per-ticker tool progress)
+    -> CUSTOM "usage"                              (tokens + elapsed, once)
   RUN_FINISHED   (or RUN_ERROR on failure)
 
 Note: the proxy's Claude models are reasoning models. Their chain-of-thought
 arrives as `delta.reasoning_content` and is intentionally NOT forwarded to the
 UI — only the final `delta.content` is streamed as assistant text.
 """
+
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -42,7 +46,7 @@ from openai import AsyncOpenAI
 
 from core.config import settings
 from core.logging_config import get_logger
-from mcp_client.session import MCPToolClient
+from mcp_client.session import MCPClientError, MCPToolClient
 
 log = get_logger("agent")
 
@@ -51,6 +55,7 @@ SYSTEM_PROMPT = (
     "Use the available tools to fetch company listings and filings and to compute "
     "financial ratios, growth and comparisons. Only report numbers returned by the "
     "tools — never invent figures. All monetary values are in US dollars (USD). "
+    "The dataset is synthetic; never present it as real market data. "
     "After calling tools, summarise the findings for the user in clear prose; the "
     "raw tool data is rendered separately as interactive cards."
 )
@@ -68,19 +73,48 @@ class ExchangeAgent:
     """Holds long-lived LLM + MCP clients and runs AG-UI streams."""
 
     def __init__(self) -> None:
-        self.llm = AsyncOpenAI(
-            api_key=settings.llm_api_key,
-            base_url=settings.openai_base_url,
-        )
+        self._llm: AsyncOpenAI | None = None
         self.mcp = MCPToolClient()
         self._tools: list[dict] = []
 
+    @property
+    def llm(self) -> AsyncOpenAI:
+        """Build the LLM client on first use.
+
+        Constructing it eagerly would make an LLM key a hard requirement for
+        starting the backend — but the MCP server, the REST API and the audit
+        log all work without one. Only the web chat needs a model.
+        """
+        if self._llm is None:
+            if not settings.llm_api_key:
+                raise RuntimeError(
+                    "LLM_API_KEY is not set, so the web chat cannot run. The MCP "
+                    "server, REST API and observability endpoints work without it — "
+                    "see backend/.env.example."
+                )
+            self._llm = AsyncOpenAI(
+                api_key=settings.llm_api_key,
+                base_url=settings.openai_base_url,
+            )
+        return self._llm
+
     async def startup(self) -> None:
-        await self.mcp.connect()
-        self._tools = self.mcp.openai_tools()
+        """Nothing to connect eagerly.
+
+        The MCP path runs through the gateway, and the gateway forwards back to
+        this same process — connecting during startup would deadlock a cold
+        start. The first run connects instead.
+        """
+        log.info("Agent ready (MCP connects lazily via %s).", self.mcp.url)
 
     async def shutdown(self) -> None:
         await self.mcp.close()
+
+    async def _ensure_tools(self) -> list[dict]:
+        if not self._tools:
+            await self.mcp.connect()
+            self._tools = self.mcp.openai_tools()
+        return self._tools
 
     @staticmethod
     def _to_openai_messages(input_data: RunAgentInput) -> list[dict]:
@@ -95,9 +129,7 @@ class ExchangeAgent:
             out.append({"role": "user", "content": "Hello"})
         return out
 
-    async def run(
-        self, input_data: RunAgentInput, accept_header: str | None
-    ) -> AsyncIterator[str]:
+    async def run(self, input_data: RunAgentInput, accept_header: str | None) -> AsyncIterator[str]:
         """Yield encoded AG-UI SSE events for one run."""
         encoder = EventEncoder(accept=accept_header)
         thread_id = input_data.thread_id
@@ -108,21 +140,18 @@ class ExchangeAgent:
         tool_call_count = 0
 
         yield encoder.encode(
-            RunStartedEvent(
-                type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
-            )
+            RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
         )
 
         try:
+            tools = await self._ensure_tools()
             messages = self._to_openai_messages(input_data)
-            last_user = next(
-                (m["content"] for m in reversed(messages) if m["role"] == "user"), ""
-            )
+            last_user = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
             log.info("run %s prompt: %r", run_id, _truncate(str(last_user)))
 
             for _ in range(MAX_TOOL_ROUNDS):
                 turn: dict = {"text": "", "tool_calls": [], "finish": None}
-                async for chunk in self._stream_turn(encoder, messages, turn):
+                async for chunk in self._stream_turn(encoder, messages, turn, tools):
                     yield chunk
                 full_response += turn["text"]
                 if turn["usage"]:
@@ -155,7 +184,7 @@ class ExchangeAgent:
 
                 # Execute each tool and feed the result back as a tool message.
                 for tc in turn["tool_calls"]:
-                    async for chunk in self._run_tool(encoder, tc):
+                    async for chunk in self._run_tool(encoder, tc, thread_id):
                         yield chunk
                     messages.append(
                         {
@@ -167,7 +196,8 @@ class ExchangeAgent:
 
             elapsed_ms = (time.perf_counter() - run_t0) * 1000
             log.info(
-                "run %s finished in %.1f ms - response %d chars, %d token(s) (%d in / %d out), %d tool call(s): %r",
+                "run %s finished in %.1f ms - response %d chars, %d token(s) "
+                "(%d in / %d out), %d tool call(s): %r",
                 run_id,
                 elapsed_ms,
                 len(full_response),
@@ -187,29 +217,26 @@ class ExchangeAgent:
                         "completionTokens": usage_totals["completion_tokens"],
                         "totalTokens": usage_totals["total_tokens"],
                         "toolCalls": tool_call_count,
+                        "protocolVersion": self.mcp.protocol_version,
                     },
                 )
             )
             yield encoder.encode(
-                RunFinishedEvent(
-                    type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
-                )
+                RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id)
             )
+        except MCPClientError as exc:
+            log.error("run %s could not reach MCP: %s", run_id, exc)
+            yield encoder.encode(RunErrorEvent(type=EventType.RUN_ERROR, message=str(exc)))
         except Exception as exc:  # noqa: BLE001 - surface any failure to the client
             elapsed_ms = (time.perf_counter() - run_t0) * 1000
             log.error("run %s failed after %.1f ms: %s", run_id, elapsed_ms, exc)
-            yield encoder.encode(
-                RunErrorEvent(type=EventType.RUN_ERROR, message=str(exc))
-            )
+            yield encoder.encode(RunErrorEvent(type=EventType.RUN_ERROR, message=str(exc)))
 
     # -- internal helpers --------------------------------------------------
     async def _stream_turn(
-        self, encoder: EventEncoder, messages: list[dict], turn: dict
+        self, encoder: EventEncoder, messages: list[dict], turn: dict, tools: list[dict]
     ) -> AsyncIterator[str]:
-        """Stream one assistant turn; yield text events; collect tool calls.
-
-        Mutates `turn` with text, tool_calls and finish_reason.
-        """
+        """Stream one assistant turn; yield text events; collect tool calls."""
         message_id = uuid.uuid4().hex
         text_open = False
         acc: dict[int, dict] = {}  # tool-call index -> {id, name, args}
@@ -220,7 +247,7 @@ class ExchangeAgent:
             model=settings.llm_model,
             max_tokens=settings.max_tokens,
             stream=True,
-            tools=self._tools,
+            tools=tools,
             messages=messages,
             stream_options={"include_usage": True},
         )
@@ -270,9 +297,7 @@ class ExchangeAgent:
 
         if text_open:
             yield encoder.encode(
-                TextMessageEndEvent(
-                    type=EventType.TEXT_MESSAGE_END, message_id=message_id
-                )
+                TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id)
             )
 
         turn["tool_calls"] = [
@@ -297,7 +322,9 @@ class ExchangeAgent:
             _truncate(turn["text"]),
         )
 
-    async def _run_tool(self, encoder: EventEncoder, tc: dict) -> AsyncIterator[str]:
+    async def _run_tool(
+        self, encoder: EventEncoder, tc: dict, thread_id: str
+    ) -> AsyncIterator[str]:
         """Emit AG-UI tool-call events and execute the tool via MCP."""
         tool_call_id = tc["id"]
         yield encoder.encode(
@@ -323,8 +350,60 @@ class ExchangeAgent:
         except json.JSONDecodeError:
             args = {}
 
+        # Progress notifications arrive on the tool call's own response stream.
+        # They are queued here and drained between awaits so they can be
+        # forwarded as AG-UI events while the call is still running.
+        progress_queue: asyncio.Queue[dict] = asyncio.Queue()
+
+        async def on_progress(progress: float, total: float | None, message: str | None):
+            await progress_queue.put(
+                {
+                    "toolCallId": tool_call_id,
+                    "toolName": tc["name"],
+                    "progress": progress,
+                    "total": total,
+                    "message": message,
+                }
+            )
+
         t0 = time.perf_counter()
-        result = await self.mcp.call_tool(tc["name"], args)
+        task = asyncio.create_task(
+            self.mcp.call_tool(
+                tc["name"],
+                args,
+                conversation_id=thread_id,
+                progress_callback=on_progress,
+            )
+        )
+
+        while True:
+            drain = asyncio.create_task(progress_queue.get())
+            done, _ = await asyncio.wait({task, drain}, return_when=asyncio.FIRST_COMPLETED)
+            if drain in done:
+                yield encoder.encode(
+                    CustomEvent(type=EventType.CUSTOM, name="progress", value=drain.result())
+                )
+                continue
+            drain.cancel()
+            break
+
+        # Anything queued in the final moments still belongs to the user.
+        while not progress_queue.empty():
+            yield encoder.encode(
+                CustomEvent(
+                    type=EventType.CUSTOM,
+                    name="progress",
+                    value=progress_queue.get_nowait(),
+                )
+            )
+
+        try:
+            result = await task
+        except MCPClientError as exc:
+            result = json.dumps({"error": str(exc)})
+        except Exception as exc:  # noqa: BLE001 - a tool failure is a normal result
+            result = json.dumps({"error": f"{type(exc).__name__}: {exc}"})
+
         elapsed_ms = (time.perf_counter() - t0) * 1000
         tc["result"] = result
         tc["ms"] = round(elapsed_ms, 1)
