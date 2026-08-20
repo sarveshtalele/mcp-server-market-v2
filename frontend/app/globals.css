@@ -120,13 +120,21 @@ button { font-family: inherit; }
 
 .body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 
+/* Flex and grid children default to min-height/min-width:auto, which means they
+   refuse to shrink below their content. A scroll container nested inside one
+   then grows to fit instead of scrolling, and everything past the viewport is
+   clipped by an ancestor's overflow:hidden - unreachable, with no page scroll
+   to fall back on. Every layout child here opts out explicitly. */
+.body > * { min-height: 0; min-width: 0; }
+
 /* ---------- conversation sidebar (chatbot pattern) ---------- */
 
 .chats {
   background: var(--primary);
   color: var(--on-primary);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+  min-width: 0; min-height: 0; overflow: hidden;
 }
 
 .chats__head {
@@ -209,7 +217,10 @@ button { font-family: inherit; }
 .badge--warn { color: var(--warning); border-color: #ecd9ac; background: #fdf8ec; }
 .badge--err { color: var(--error); border-color: #f0c6c6; background: #fdf2f2; }
 
-.page { flex: 1; overflow: auto; padding: var(--s-xl); min-width: 0; }
+.page {
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  padding: var(--s-xl); min-width: 0;
+}
 .page > :first-child { margin-top: var(--s-sm); }
 .page__head { margin-bottom: var(--s-lg); }
 .page__head h1 { font-size: 24px; font-weight: 650; letter-spacing: -0.015em; margin: 0 0 4px; }
@@ -239,12 +250,17 @@ button { font-family: inherit; }
 .chat {
   display: grid;
   grid-template-columns: var(--chats-w) minmax(0, 1fr) var(--rail-w);
-  flex: 1; min-height: 0;
+  flex: 1; min-height: 0; overflow: hidden;
 }
+.chat > * { min-height: 0; min-width: 0; }
 /* The sidebar sets its own width when collapsed; the grid follows it. */
 .chat:has(.chats--collapsed) { grid-template-columns: 52px minmax(0, 1fr) var(--rail-w); }
-.chat__main { display: flex; flex-direction: column; min-width: 0; }
-.chat__scroll { flex: 1; overflow: auto; padding: var(--s-2xl) var(--s-xl) var(--s-lg); }
+.chat__main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.chat__scroll {
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  padding: var(--s-2xl) var(--s-xl) var(--s-lg);
+  overscroll-behavior: contain;
+}
 .chat__inner { width: min(840px, 100%); margin: 0 auto; }
 
 .turn { display: grid; gap: 10px; margin: 0 0 var(--s-xl); }
@@ -288,7 +304,7 @@ button { font-family: inherit; }
 }
 .err-row code { font: 11px var(--mono); }
 
-.composer { padding: var(--s-md) var(--s-xl) var(--s-lg); flex: none; }
+.composer { padding: var(--s-md) var(--s-xl) var(--s-lg); flex: none; background: var(--neutral); }
 .composer__inner { width: min(840px, 100%); margin: 0 auto; }
 .composer__box {
   background: var(--surface); border: 1px solid var(--border);
@@ -326,7 +342,9 @@ button { font-family: inherit; }
 
 .rail {
   background: var(--surface); border-left: 1px solid var(--border);
-  overflow: auto; min-width: 0;
+  overflow-y: auto; overflow-x: hidden;
+  min-width: 0; min-height: 0;
+  overscroll-behavior: contain;
 }
 .rail__head {
   min-height: 76px; border-bottom: 1px solid var(--border); position: sticky; top: 0;
@@ -471,6 +489,14 @@ td.mono, th.mono { font-family: var(--mono); font-size: 11px; }
   .chat { grid-template-columns: var(--chats-w) minmax(0, 1fr); }
   .chat:has(.chats--collapsed) { grid-template-columns: 52px minmax(0, 1fr); }
   .rail { display: none; }
+}
+
+/* Short viewports: the composer and at least a little transcript must stay
+   reachable, so the empty state stops reserving vertical space. */
+@media (max-height: 620px) {
+  .chat__scroll { padding-top: var(--s-lg); }
+  .empty { padding: var(--s-sm) 0 var(--s-lg); }
+  .top, .rail__head { min-height: 60px; padding-top: var(--s-md); padding-bottom: var(--s-md); }
 }
 @media (max-width: 800px) {
   .chat,
