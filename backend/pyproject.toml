@@ -23,6 +23,10 @@ ignore = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# The default run is hermetic: no gateway, no LLM credentials, no network.
+# Opt into those explicitly with `pytest -m gateway` / `pytest -m llm`, which
+# override this because pytest honours the last -m it is given.
+addopts = "-m 'not gateway and not llm'"
 filterwarnings = ["ignore::DeprecationWarning"]
 markers = [
     "gateway: needs a running agentgateway (set MCP_GATEWAY_URL); skipped by default",

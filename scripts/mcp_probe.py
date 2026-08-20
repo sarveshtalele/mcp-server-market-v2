@@ -25,10 +25,35 @@ import json
 import sys
 from pathlib import Path
 
-# Run from anywhere: the client lives in backend/.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
+BACKEND = Path(__file__).resolve().parent.parent / "backend"
+sys.path.insert(0, str(BACKEND))  # run from anywhere: the client lives in backend/
 
-from mcp import Client, Implementation  # noqa: E402
+try:
+    from mcp import Client, Implementation
+except ModuleNotFoundError:  # pragma: no cover - exercised by running outside the venv
+    # The SDK is installed in the project virtualenv, not system Python. Re-run
+    # ourselves under that interpreter rather than making the reader remember
+    # which python to invoke.
+    import os
+    import subprocess
+
+    venv_python = BACKEND / ".venv" / (
+        "Scripts" if os.name == "nt" else "bin"
+    ) / ("python.exe" if os.name == "nt" else "python")
+    if not venv_python.exists():
+        raise SystemExit(
+            f"The MCP SDK is not installed for {sys.executable}, and there is no "
+            f"virtualenv at {BACKEND / '.venv'}.\n"
+            "Create one first — see README section 2.1."
+        ) from None
+    # Compare sys.prefix, not the interpreter path: a virtualenv's bin/python is
+    # usually a symlink to the base interpreter, so resolved paths match even
+    # when we are running outside the venv.
+    if Path(sys.prefix).resolve() == (BACKEND / ".venv").resolve():
+        raise  # already inside the venv: a genuinely missing dependency
+    raise SystemExit(
+        subprocess.call([str(venv_python), str(Path(__file__).resolve()), *sys.argv[1:]])
+    )
 
 DEFAULT_URL = "http://127.0.0.1:3111/mcp"
 PROTOCOL_VERSION = "2026-07-28"

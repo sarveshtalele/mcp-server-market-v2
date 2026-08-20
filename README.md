@@ -106,7 +106,7 @@ macOS and Linux users, and anyone who wants to see each step, follow 2.1–2.4.
 ### 2.1 Backend
 
 ```bash
-python -m venv backend/.venv
+python3 -m venv backend/.venv
 ```
 
 macOS / Linux:
@@ -124,7 +124,7 @@ backend\.venv\Scripts\pip install -r backend\requirements-dev.txt
 ### 2.2 Build the dataset
 
 ```bash
-python scripts/dev.py seed
+python3 scripts/dev.py seed
 ```
 
 Deterministic: the same rows on every machine, every time. Re-running it is safe — it rebuilds the
@@ -137,13 +137,13 @@ published SHA-256, and installs into `backend/mcp_server/gateway/bin/` (gitignor
 ~80 MB and is never committed):
 
 ```bash
-python scripts/get_gateway.py
+python3 scripts/get_gateway.py
 ```
 
 Pin a different version if you need to:
 
 ```bash
-python scripts/get_gateway.py --version v1.4.1 --force
+python3 scripts/get_gateway.py --version v1.4.1 --force
 ```
 
 <details>
@@ -235,7 +235,7 @@ MCP server, REST API and audit log keep working normally.
 Everything, in the right order, on any OS:
 
 ```bash
-python scripts/dev.py all
+python3 scripts/dev.py all
 ```
 
 That starts the gateway on `:3111`, waits for the backend on `:8000` to report healthy, then starts
@@ -244,15 +244,15 @@ the UI on `:3000`. Ctrl+C stops all three.
 Individually:
 
 ```bash
-python scripts/dev.py gateway
+python3 scripts/dev.py gateway
 ```
 
 ```bash
-python scripts/dev.py backend
+python3 scripts/dev.py backend
 ```
 
 ```bash
-python scripts/dev.py frontend
+python3 scripts/dev.py frontend
 ```
 
 | Where | What |
@@ -281,7 +281,7 @@ Every host points at the **gateway** on `:3111`, never at the backend's `:8000/m
 straight to the backend still works — and disappears from the audit log, which defeats the point of
 the whole setup.
 
-Start the stack first (`python scripts/dev.py all`, or `run.bat` on Windows). The gateway must be
+Start the stack first (`python3 scripts/dev.py all`, or `run.bat` on Windows). The gateway must be
 running before a host connects.
 
 ### 4.1 Claude Code
@@ -408,7 +408,7 @@ using them, and about talking to the server from your own code.
 ### 5.1 Check your connection in one command
 
 ```bash
-python scripts/mcp_probe.py
+python3 scripts/mcp_probe.py
 ```
 
 It connects as a client, prints the protocol version, every tool, resource and
@@ -441,7 +441,7 @@ Point it at the backend directly and the difference is visible immediately —
 this is the gateway limitation from §6, not a broken server:
 
 ```bash
-python scripts/mcp_probe.py --url http://127.0.0.1:8000/mcp
+python3 scripts/mcp_probe.py --url http://127.0.0.1:8000/mcp
 ```
 
 ```
@@ -463,7 +463,7 @@ Use `--as` to impersonate a host and watch attribution work without installing
 anything:
 
 ```bash
-python scripts/mcp_probe.py --as claude-desktop
+python3 scripts/mcp_probe.py --as claude-desktop
 ```
 
 That call shows up in the Audit Log tagged `claude-desktop`. A name the server
@@ -610,21 +610,38 @@ timing, never presented as a conversation.
 
 ## 8. Develop
 
+Run these from `backend/` — that is where the pytest and ruff configuration
+lives, and neither tool finds it from the repository root:
+
 ```bash
-backend/.venv/bin/python -m pytest tests/
+cd backend && .venv/bin/python -m pytest
 ```
 
 ```bash
-backend/.venv/bin/ruff check .
+cd backend && .venv/bin/ruff check .
 ```
 
-100 tests cover protocol conformance, transport rules, the tool surface, REST parity, the registry
-contract, attribution, retention and the client. Two marks are skipped by default:
+100 tests cover protocol conformance, transport rules, the tool surface, REST
+parity, the registry contract, attribution, retention and the client. The default
+run is hermetic — no gateway, no credentials, no network. Two suites opt in:
 
 ```bash
-backend/.venv/bin/python -m pytest -m gateway   # needs a running gateway
-backend/.venv/bin/python -m pytest -m llm       # needs a real LLM proxy
+cd backend && .venv/bin/python -m pytest -m gateway
 ```
+
+7 tests against a **running** agentgateway: that the revision survives the hop,
+that tools are proxied, that resources and prompts are not, and that a caller's
+identity reaches the audit log. Start the stack first; without it they skip with
+a message naming what is missing.
+
+```bash
+cd backend && .venv/bin/python -m pytest -m llm
+```
+
+3 tests driving the real configured model through `/agui`, asserting the event
+contract rather than the wording: exactly one usage event per run, a tool
+actually executed, and no reasoning content forwarded. Needs `LLM_API_KEY`
+(§2.4); skips loudly without it.
 
 ### Adding a module
 
