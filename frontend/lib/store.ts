@@ -124,18 +124,22 @@ export function useConversations() {
 
   const deleteChat = useCallback(
     (id: string) => {
-      setConversations((prev) => {
-        const next = prev.filter((c) => c.id !== id);
-        if (next.length === 0) {
-          const c = newConversation();
-          setActiveId(c.id);
-          return [c];
-        }
-        if (id === activeId) setActiveId(next[0].id);
-        return next;
-      });
+      // Both updates are computed here rather than inside the setConversations
+      // updater: React runs updater functions during the render phase, and
+      // calling another setState from there warns ("Cannot update a component
+      // while rendering a different component") now that the store sits above
+      // both the nav rail and the workspace.
+      const remaining = conversations.filter((c) => c.id !== id);
+      if (remaining.length === 0) {
+        const replacement = newConversation();
+        setConversations([replacement]);
+        setActiveId(replacement.id);
+        return;
+      }
+      setConversations(remaining);
+      if (id === activeId) setActiveId(remaining[0].id);
     },
-    [activeId],
+    [conversations, activeId],
   );
 
   /** Update the messages of a specific conversation by id. */

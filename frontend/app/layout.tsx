@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { NavRail } from "@/components/shell/NavRail";
+import { Shell } from "@/components/shell/Shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,10 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <div className="shell">
-          <NavRail />
-          <main className="workspace">{children}</main>
-        </div>
+        <Shell>{children}</Shell>
       </body>
     </html>
   );

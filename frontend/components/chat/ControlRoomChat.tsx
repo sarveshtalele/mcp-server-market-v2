@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AGUIMessage, runAgent } from "@/lib/agui";
 import { AGENT_URL, Capabilities, getCapabilities } from "@/lib/api";
-import { Msg, useConversations } from "@/lib/store";
+import { useConversationsContext } from "@/lib/conversations";
+import { Msg } from "@/lib/store";
 import { Markdown } from "@/components/chat/Markdown";
 import { renderToolCard, TOOL_LABEL } from "@/components/chat/toolCards";
 import { ObservabilityRail } from "@/components/rail/ObservabilityRail";
@@ -53,8 +54,8 @@ function errorCopy(message: string): string {
  * wall-clock in this browser, the other is the backend's own accounting.
  */
 export function ControlRoomChat() {
-  const { conversations, active, activeId, setActiveId, createChat, deleteChat, setMessagesOf } =
-    useConversations();
+  // One shared store: the nav rail lists the conversations, this owns the run.
+  const { active, activeId, createChat, setMessagesOf } = useConversationsContext();
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -205,30 +206,7 @@ export function ControlRoomChat() {
             <span className="badge">
               {declared?.server_name ?? "stock-exchange"} v{declared?.server_version ?? "—"}
             </span>
-            <select
-              aria-label="Conversation"
-              className="badge"
-              value={activeId ?? ""}
-              onChange={(event) => setActiveId(event.target.value)}
-            >
-              {conversations.map((conversation) => (
-                <option key={conversation.id} value={conversation.id}>
-                  {conversation.title}
-                </option>
-              ))}
-            </select>
-            <button className="btn btn--secondary" onClick={() => createChat()}>
-              New
-            </button>
-            {conversations.length > 1 && activeId && (
-              <button
-                className="btn btn--secondary"
-                onClick={() => deleteChat(activeId)}
-                title="Delete this conversation"
-              >
-                Delete
-              </button>
-            )}
+
           </div>
         </header>
 
