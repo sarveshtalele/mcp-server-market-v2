@@ -71,6 +71,21 @@ export interface Capabilities {
   gateway_error?: string;
 }
 
+export interface PolicyTool {
+  name: string;
+  allowed: boolean;
+}
+
+export interface Policy {
+  editable: boolean;
+  config_path: string;
+  tools: PolicyTool[];
+  /** Allowlisted names the server no longer exposes. */
+  orphaned: string[];
+  restart_required?: boolean;
+  message?: string;
+}
+
 export interface ServersInfo {
   server: {
     name: string;
@@ -85,6 +100,7 @@ export interface ServersInfo {
     configured: boolean;
     allowlist: string[];
     allowlist_matches_tools: boolean | null;
+    editable: boolean;
   };
   callers_seen: {
     source: string;
@@ -115,6 +131,23 @@ export const getServers = (signal?: AbortSignal) =>
 
 export const getCapabilities = (signal?: AbortSignal) =>
   getJson<Capabilities>("/agui/capabilities", signal);
+
+export const getPolicy = (signal?: AbortSignal) =>
+  getJson<Policy>("/observability/policy", signal);
+
+/** Replace the gateway allowlist. Takes effect when the gateway restarts. */
+export async function savePolicy(allowed: string[]): Promise<Policy> {
+  const response = await fetch(`${BACKEND_URL}/observability/policy`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ allowed }),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body?.detail ?? `${response.status} ${response.statusText}`);
+  }
+  return body as Policy;
+}
 
 /**
  * Subscribe to the live cross-host call feed.

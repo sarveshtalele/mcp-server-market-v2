@@ -591,7 +591,37 @@ protocol version and trace id.
 
 - **Fleet Activity** (right rail, chat page) — live cross-host feed over SSE.
 - **Audit Log** — filterable history with per-row inspection and a summary strip.
-- **MCP Servers** — gateway status, allowlist, capability surface, callers seen in the last hour.
+- **MCP Servers** — gateway status, capability surface, callers seen in the last hour, and
+  the **editable tool allowlist**.
+
+### Editing the tool allowlist
+
+The **MCP Servers** page lists every tool the server exposes with a permit/block
+toggle. Blocking a tool means the gateway refuses the call before it ever reaches
+the server — that is the governance boundary, not a UI nicety.
+
+Two things the page states rather than hides:
+
+- **Saving writes the gateway's config file; it is not yet in force.**
+  agentgateway reads its config only at startup, so a save is followed by a
+  banner telling you to restart it (`python3 scripts/dev.py gateway`). Verified:
+  after blocking `sector_ranking` and restarting, a call through the gateway
+  fails with `Unknown tool: sector_ranking`.
+- **Unsaved toggles are not policy.** Pending edits are marked, and nothing is
+  written until you press save.
+
+Edits go to `policies.mcpAuthorization` in
+`backend/mcp_server/gateway/config.yaml`, line-wise so every comment in that file
+survives. Unknown tool names are rejected rather than written.
+
+This lets a browser with no authentication edit a security policy — a deliberate
+trade for a localhost PoC. Turn it off with:
+
+```ini
+ALLOW_POLICY_EDIT=false
+```
+
+The page then renders read-only and the endpoint returns `403`.
 
 **Attribution** comes from `io.modelcontextprotocol/clientInfo`. A caller that sends nothing usable
 is recorded as `unknown` — never guessed. Override the mapping without touching code:

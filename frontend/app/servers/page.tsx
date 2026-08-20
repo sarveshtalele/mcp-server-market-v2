@@ -8,6 +8,7 @@ import {
   getCapabilities,
   getServers,
 } from "@/lib/api";
+import { ToolPolicy } from "@/components/servers/ToolPolicy";
 
 /** MCP Servers — is the thing up, and who is talking to it. */
 export default function ServersPage() {
@@ -151,25 +152,7 @@ export default function ServersPage() {
             </div>
           </div>
 
-          <div className="grid-2" style={{ marginTop: "var(--s-lg)" }}>
-            <div>
-              <p className="panel__title">TOOLS · ALLOWLISTED</p>
-              <div className="chips">
-                {(info?.server.tools ?? []).map((tool) => {
-                  const allowed = info?.gateway.allowlist.includes(tool) ?? false;
-                  return (
-                    <span
-                      key={tool}
-                      className={`chip ${allowed ? "chip--tool" : "chip--err"}`}
-                      title={allowed ? "Allowed by gateway policy" : "NOT in the gateway allowlist"}
-                    >
-                      <span className="chip__state" />
-                      {tool}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
+          <div style={{ marginTop: "var(--s-lg)" }}>
             <div>
               <p className="panel__title">RESOURCES &amp; PROMPTS</p>
               <div className="chips">
@@ -189,6 +172,10 @@ export default function ServersPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="panel">
+          <ToolPolicy onSaved={() => setInfo(null)} />
         </div>
 
         <div className="panel">

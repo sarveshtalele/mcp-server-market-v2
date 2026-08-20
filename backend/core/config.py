@@ -82,6 +82,11 @@ class Settings(BaseSettings):
     audit_args_max_chars: int = 500
     audit_meta_max_chars: int = 1_000
 
+    # Let the Control Room edit the gateway's tool allowlist. This is a
+    # localhost PoC with no auth, so a browser editing a security policy is a
+    # deliberate trade; set false to make the endpoint read-only.
+    allow_policy_edit: bool = True
+
     # --- Client identity --------------------------------------------------
     # How this project's own agent identifies itself on every MCP request.
     client_name: str = "control-room"

@@ -393,6 +393,42 @@ button { font-family: inherit; }
 .muted { color: var(--text-muted); font-size: 12px; }
 .mono { font-family: var(--mono); }
 
+/* ---------- tool policy (gateway allowlist) ---------- */
+
+.policy__head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--s-md); flex-wrap: wrap; margin-bottom: var(--s-md);
+}
+.policy__actions { display: flex; gap: var(--s-sm); }
+
+.policy__grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--s-sm); margin-top: var(--s-md);
+}
+.policy__row {
+  display: flex; align-items: center; gap: var(--s-sm);
+  padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface); cursor: pointer; user-select: none;
+}
+.policy__row:hover { border-color: var(--tertiary); }
+.policy__row input { accent-color: var(--tertiary); cursor: pointer; flex: none; }
+.policy__row input:disabled { cursor: not-allowed; }
+.policy__name { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.policy__state { font: 10px var(--mono); white-space: nowrap; }
+
+.policy__row--on { border-left: 3px solid var(--success); }
+.policy__row--on .policy__state { color: var(--success); }
+/* Blocked is a state to notice, not an error: pair the colour with the word. */
+.policy__row--off { background: var(--surface-subtle); border-left: 3px solid var(--error); }
+.policy__row--off .policy__name { color: var(--text-muted); }
+.policy__row--off .policy__state { color: var(--error); }
+/* Pending edits are visibly not-yet-policy. */
+.policy__row--changed { border-color: var(--warning); background: #fdf8ec; }
+.policy__row--changed .policy__state { color: var(--warning); }
+
+.notice--error { border-color: #f0c6c6; background: #fdf2f2; color: #7a1f1f; }
+.notice--error b { color: var(--error); }
+
 /* ---------- tables ---------- */
 
 .filters { display: flex; gap: var(--s-sm); flex-wrap: wrap; margin-bottom: var(--s-md); }

@@ -40,17 +40,17 @@ binds:
                   # exposes — tests/test_observability.py asserts they match.
                   mcpAuthorization:
                     rules:
-                      - 'mcp.tool.name == "get_company"'
-                      - 'mcp.tool.name == "search_companies"'
-                      - 'mcp.tool.name == "list_sectors"'
-                      - 'mcp.tool.name == "get_filings"'
-                      - 'mcp.tool.name == "get_latest_filing"'
                       - 'mcp.tool.name == "calc_financial_ratios"'
                       - 'mcp.tool.name == "calc_revenue_growth"'
                       - 'mcp.tool.name == "compare_companies"'
-                      - 'mcp.tool.name == "sector_ranking"'
+                      - 'mcp.tool.name == "get_company"'
+                      - 'mcp.tool.name == "get_filings"'
+                      - 'mcp.tool.name == "get_latest_filing"'
                       - 'mcp.tool.name == "list_market_resources"'
+                      - 'mcp.tool.name == "list_sectors"'
                       - 'mcp.tool.name == "read_market_resource"'
+                      - 'mcp.tool.name == "search_companies"'
+                      - 'mcp.tool.name == "sector_ranking"'
 
             policies:
               cors:

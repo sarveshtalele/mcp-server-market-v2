@@ -92,7 +92,8 @@ app.add_middleware(
     # Explicit origins only. "*" would defeat the Origin validation the MCP
     # transport requires.
     allow_origins=settings.cors_origins,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    # PUT is needed for the allowlist editor on the MCP Servers page.
+    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
     allow_headers=["content-type", "accept", "authorization", "mcp-protocol-version"],
 )
 

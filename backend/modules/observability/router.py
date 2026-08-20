@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from core.config import PROTOCOL_VERSION, settings
+from modules.observability import policy as policy_store
 from modules.observability import repository as repo
 from modules.observability.hub import hub
 from modules.observability.store import get_obs_db
@@ -92,7 +93,7 @@ def servers(db: Session = Depends(get_obs_db)) -> dict:
     from mcp_server.server import mcp
 
     tools = sorted(t.name for t in mcp._tool_manager.list_tools())  # noqa: SLF001
-    allowlist = _gateway_allowlist()
+    allowlist = policy_store.read_allowlist()
     return {
         "server": {
             "name": mcp.name,
@@ -107,6 +108,7 @@ def servers(db: Session = Depends(get_obs_db)) -> dict:
             "configured": bool(allowlist),
             "allowlist": allowlist,
             "allowlist_matches_tools": sorted(allowlist) == tools if allowlist else None,
+            "editable": settings.allow_policy_edit,
         },
         "callers_seen": repo.callers_seen(db, since_minutes=60),
         "live_listeners": hub.listener_count,
@@ -142,20 +144,56 @@ def _tail(path: Path, count: int) -> str:
     return "\n".join(content[-count:]) or "(empty)"
 
 
-_ALLOWLIST_RULE = re.compile(r'mcp\.tool\.name\s*==\s*"([^"]+)"')
 
 
-def _gateway_allowlist() -> list[str]:
-    """Tool names the gateway is configured to permit.
+class PolicyUpdate(BaseModel):
+    """The complete set of tools the gateway should permit."""
 
-    Parsed with a regex rather than a YAML dependency: the file is ours, the
-    rule shape is fixed, and this keeps the backend dependency-light.
+    allowed: list[str] = Field(default_factory=list)
+
+
+def _policy_payload() -> dict:
+    """Every tool the server exposes, and whether the gateway permits it."""
+    from mcp_server.server import mcp
+
+    tools = sorted(t.name for t in mcp._tool_manager.list_tools())  # noqa: SLF001
+    allowed = set(policy_store.read_allowlist())
+    return {
+        "editable": settings.allow_policy_edit,
+        "config_path": str(policy_store.config_path()),
+        "tools": [{"name": name, "allowed": name in allowed} for name in tools],
+        # Names in the allowlist that the server no longer exposes. Harmless to
+        # the gateway, but worth surfacing rather than hiding.
+        "orphaned": sorted(allowed - set(tools)),
+    }
+
+
+@router.get("/policy")
+def get_policy() -> dict:
+    """The tool allowlist, as the MCP Servers page renders it."""
+    return _policy_payload()
+
+
+@router.put("/policy")
+def put_policy(update: PolicyUpdate) -> dict:
+    """Replace the allowlist.
+
+    The gateway reads its config only at startup, so the response says so:
+    nothing changes for callers until it is restarted.
     """
-    config = settings.resolve("mcp_server/gateway/config.yaml")
-    if not config.exists():
-        return []
+    from mcp_server.server import mcp
+
+    known = sorted(t.name for t in mcp._tool_manager.list_tools())  # noqa: SLF001
     try:
-        text = config.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return []
-    return sorted(set(_ALLOWLIST_RULE.findall(text)))
+        policy_store.write_allowlist(update.allowed, known)
+    except policy_store.PolicyError as exc:
+        status = 403 if "disabled" in str(exc) else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+    payload = _policy_payload()
+    payload["restart_required"] = True
+    payload["message"] = (
+        "Allowlist written. Restart agentgateway to apply it — it reads its "
+        "config only at startup: python scripts/dev.py gateway"
+    )
+    return payload
