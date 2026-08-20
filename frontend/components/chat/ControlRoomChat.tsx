@@ -7,6 +7,7 @@ import { useConversationsContext } from "@/lib/conversations";
 import { Msg } from "@/lib/store";
 import { Markdown } from "@/components/chat/Markdown";
 import { renderToolCard, TOOL_LABEL } from "@/components/chat/toolCards";
+import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ObservabilityRail } from "@/components/rail/ObservabilityRail";
 
 const SUGGESTIONS = [
@@ -188,6 +189,8 @@ export function ControlRoomChat() {
 
   return (
     <div className="chat">
+      <ChatSidebar />
+
       <div className="chat__main">
         <header className="top">
           <div>
