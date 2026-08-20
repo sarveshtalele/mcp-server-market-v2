@@ -138,13 +138,13 @@ components:
 
 ## Overview
 
-Enterprise MCP Control Room is a high-trust, operations-oriented chat UI for a **single orchestrating agent** that reasons over an OpenAI-compatible model and executes tools on one MCP server (`stock-exchange`) speaking **MCP 2026-07-28** over Streamable HTTP. The interface should feel like an internal platform console rather than a consumer messenger: calm, precise, information-dense, and auditable.
+Enterprise MCP Control Room is a high-trust, operations-oriented chat UI for a **single orchestrating agent** that reasons over an OpenAI-compatible model and executes tools on one MCP server (`mcp-market-mcp-server`) speaking **MCP 2026-07-28** over Streamable HTTP. The interface should feel like an internal platform console rather than a consumer messenger: calm, precise, information-dense, and auditable.
 
 The primary interaction is conversational. The user should always understand five things without opening developer tools: what the assistant is saying, which MCP tools were invoked and how long each took, which resources or prompts were used as context, how much model context the turn consumed, and which protocol version and endpoint served the request.
 
 **The Control Room is also a fleet view, not just a chat.** Every consumer — Claude Desktop, Claude Code, VS Code Copilot, Antigravity, and this UI's own agent — reaches the server through one gateway. A tool call made inside a Claude Desktop conversation must be visible here, tagged with where it came from. Two scopes therefore coexist and must never be blurred together: **this conversation's** tool calls, and **the fleet's** calls. Conversation scope answers "what did my last question cost"; fleet scope answers "who is using this server right now".
 
-The visual system uses a deep ink navigation shell, white working surfaces, a single electric blue interaction color, and distinct semantic accents for the orchestrator, tools, resources, success, warning, and errors. Telemetry uses monospace type and compact metric cards.
+The visual system uses a deep ink shell — menu bar and conversation sidebar — white working surfaces, a single electric blue interaction color, and distinct semantic accents for the orchestrator, tools, resources, success, warning, and errors. Telemetry uses monospace type and compact metric cards.
 
 **Truthfulness rule.** Every value on screen must trace to a real backend signal. The backend emits per-tool client-measured latency, one per-run usage event (`elapsedMs`, `promptTokens`, `completionTokens`, `totalTokens`, `toolCalls`), the capability set from `server/discover`, and per-call audit rows. It does **not** currently emit cached-token counts, multi-agent orchestration, or a context-window limit. Do not render what the backend does not produce; hide the field instead. Fixture data must be labelled `DEMO`, and the dataset is synthetic (`Faker`, fixed seed) and must be labelled as such wherever figures appear.
 
@@ -173,9 +173,9 @@ Headlines are compact and moderately weighted. Body text stays at 13–14px for 
 
 ## Layout
 
-Use a fixed desktop shell with three primary regions:
+Use a fixed desktop shell with a menu bar and three panes:
 
-1. **Global navigation rail:** 232px wide. Product identity, conversation list, navigation, environment badge, and account controls.
+1. **Global menu bar:** 56px tall, spanning the full width. Product identity on the left, the three routes as tabs in the centre, environment badge and account control on the right. Navigation is horizontal so the side rail is free to be what a chat sidebar should be.
 2. **Conversation workspace:** fluid center column, optimized for 680–820px readable content width. Conversation header, message timeline, generative tool cards, composer, and turn-level status.
 3. **Observability rail:** 340–380px wide. Token usage, MCP capability surface, tool execution timeline, cache state, and request metadata.
 
@@ -197,9 +197,9 @@ Do not mix sharp 0px cards with rounded cards in the same component family. Tabl
 
 ## Components
 
-### Global shell
+### Global menu bar
 
-Stable across all routes. The left navigation uses the primary ink color and remains visually distinct from the product workspace. The current environment is always visible and should not rely on a small tooltip. Because the dataset is synthetic, the environment badge reads `DEMO · SYNTHETIC DATA` rather than implying production market data.
+Stable across all routes, in the primary ink colour so it reads as the application shell rather than page content. The active route is filled; the others are quiet until hovered. The current environment is always visible and should not rely on a small tooltip. Because the dataset is synthetic, the environment badge reads `DEMO · SYNTHETIC DATA` rather than implying production market data.
 
 Routes: **Chat** (conversation workspace), **MCP Servers** (gateway and server health), **Audit Log** (fleet-wide call history). Every entry resolves to a real view — no placeholder links.
 
@@ -225,7 +225,7 @@ Represent orchestration as **rounds** of that loop: a collapsible timeline item 
 
 ### MCP tool chip
 
-Show tool name, server (`stock-exchange`), status, duration, and a short argument preview. Use the cyan tool accent. While running, show a small spinner; on completion, a check icon and duration; on failure, the error semantic plus the protocol error code. Tool names appear in monospace, exactly as the server declares them.
+Show tool name, server (`mcp-market-mcp-server`), status, duration, and a short argument preview. Use the cyan tool accent. While running, show a small spinner; on completion, a check icon and duration; on failure, the error semantic plus the protocol error code. Tool names appear in monospace, exactly as the server declares them.
 
 ### MCP resource chip
 
@@ -264,7 +264,7 @@ gateway    = agentgateway:3111
 endpoint   = http://127.0.0.1:8000/mcp
 transport  = streamable-http
 protocol   = 2026-07-28
-policy     = stock-exchange-allowlist
+policy     = mcp-market-mcp-server-allowlist
 trace_id   = <traceparent>
 data       = synthetic
 ```
@@ -301,6 +301,19 @@ Above the table, a compact summary strip: total calls, calls by source, error ra
 
 A full route showing the connected server as an operator would want it: gateway status and version, target endpoint and health, negotiated protocol version, the tool allowlist as it is actually configured, and the callers seen in the last hour with their call counts. This is the page that answers "is the thing up, and who is talking to it".
 
+### Tool policy editor
+
+The MCP Servers page lists every tool the server exposes with a permit/block control. This is the
+governance boundary, not a preference, so the interface must not overstate what it has done:
+
+- **Pending toggles are marked as pending.** They are not policy until saved.
+- **A save is followed by an explicit "restart the gateway to apply" notice.** The gateway reads
+  its config at startup, so a saved change is written but not yet enforced. Implying otherwise
+  would mislead an operator about what is live.
+- **Permitted and blocked are stated in words**, not colour alone.
+- Where editing is disabled by configuration, the panel renders read-only and says which setting
+  controls it.
+
 ### Composer
 
 Large text input with attachment/action affordances kept secondary. Send uses the primary blue button. While a run is active, replace send with a stop action. Keyboard-first: Enter sends, Shift+Enter newlines, focus is preserved across runs.
@@ -308,6 +321,28 @@ Large text input with attachment/action affordances kept secondary. Send uses th
 ### Empty state
 
 Use operational examples drawn from tools that actually exist: `Show AAPL's company profile`, `Compare JPM, BAC and WFC`, `MSFT financial ratios`, `NVDA revenue trend`, `Top 5 Financials by market cap`. Keep the empty state useful and quiet, not promotional, and state that the data is synthetic.
+
+### Scrolling and containment
+
+The shell owns the viewport; individual panes scroll inside it. The page itself must never scroll,
+and content must never be clipped out of reach.
+
+Three rules, learned from a regression that made the transcript unscrollable and pushed the
+composer off-screen:
+
+- **Every layout child declares `min-height: 0`.** Flex and grid children default to
+  `min-height: auto`, so they refuse to shrink below their content. A scroll container nested
+  inside one then grows to fit instead of scrolling, and everything past the fold is clipped by an
+  ancestor's `overflow: hidden` — with no page scroll to fall back on.
+- **Exactly one scroll container per pane**, with explicit `overflow-y`. Transcript, telemetry
+  rail, conversation list and full-page routes each own their own scrolling, with
+  `overscroll-behavior: contain` so scrolling one does not chain to the shell.
+- **The composer is never displaced.** It sits outside the scroll container, paints its own
+  background, and stays reachable at every supported viewport.
+
+Wide content — tables, long identifiers, argument previews — scrolls inside its own box rather
+than widening the page. Verify at 1440×900, at a short viewport such as 1200×560, and at 390×780
+before calling a layout change done.
 
 ### Loading and streaming
 

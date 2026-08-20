@@ -1,6 +1,8 @@
 # Migration Plan — `mcp-server-market` → MCP 2026-07-28
 
-Status: **DRAFT — awaiting approval. No code changed yet.**
+Status: **Delivered.** Kept as the record of why the architecture looks like this, which
+alternatives were rejected, and what was measured rather than assumed. For the current state see
+[CLAUDE.md](CLAUDE.md); for how it was executed see [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 Author pass: plan drafted → reviewed against the actual repo → gaps listed → final plan below.
 
 ---

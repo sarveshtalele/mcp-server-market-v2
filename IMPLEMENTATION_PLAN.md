@@ -2,7 +2,24 @@
 
 Execution plan for migrating `mcp-server-market` to MCP **2026-07-28** with centralized observability and a rebuilt Control Room UI.
 
-Status: **awaiting go-ahead to start MCP-001.** No implementation code written yet.
+Status: **Delivered.** Every epic below has landed. This document is kept as the execution
+record — the ticket breakdown, the decisions taken, and the risks that turned out to matter.
+
+**Outcome against the plan**
+
+| Planned | Delivered |
+| :--- | :--- |
+| 9 tools preserved | 11 — two added to bridge the resource surface the gateway does not proxy |
+| Golden fixtures as the migration gate | Replaced by REST-parity assertions: both paths serialise through the same schema, which is a stronger check than a snapshot |
+| ~19.5 days estimated | Compressed; scope grew (allowlist editor, Control Room rebuild, probe script) |
+| D-3 "2026-07-28 only" | Enforced by `ProtocolGuardMiddleware`, since SDK v2 serves the legacy handshake with no switch |
+| MCP-701 spike (does `mcp-remote` speak 2026-07-28?) | **Still open** — needs the bridged hosts installed |
+| CI on Linux and Windows | **Still open** |
+| Frontend tests | **Still open** — a CSS regression reached the user because of it |
+
+The risks that materialised were not the ones ranked highest: the SDK rewrite went smoothly, while
+the gateway's silent refusal to proxy resources and prompts (R-5, ranked low) forced a design
+change.
 
 Companion docs: [MIGRATION_PLAN.md](MIGRATION_PLAN.md) (why) · [SPECS.md](SPECS.md) (acceptance criteria) · [CLAUDE.md](CLAUDE.md) (ground truth + SDLC) · [DESIGN.md](DESIGN.md) (UI spec)
 

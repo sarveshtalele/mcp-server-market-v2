@@ -37,10 +37,10 @@ Break any of these and the PoC stops working, usually silently.
 Claude Desktop ─┐
 Claude Code    ─┤
 VS Code Copilot─┼─→ agentgateway :3111 ─→ FastAPI :8000
-Antigravity    ─┤     allowlist            ├── /mcp            Streamable HTTP, 2026-07-28
-web agent      ─┘     audit + caller       ├── /agui           AG-UI agent
-                      attribution          ├── /listings /filings  REST
-                      OTLP + /metrics      └── /observability  audit query API for the UI
+Antigravity    ─┤     tool allowlist       ├── /mcp            Streamable HTTP, 2026-07-28
+web agent      ─┘     (editable from        ├── /agui           AG-UI agent + capabilities
+                       the UI)              ├── /listings /filings  REST
+                                            └── /observability  audit query + policy API
                                           → stock_market.db + observability.db
 ```
 
@@ -56,19 +56,19 @@ Cross-platform: every command below is the same on macOS, Linux and Windows. The
 `run_all.bat`, `setup.ps1` and `run.ps1` were deleted — `scripts/dev.py` replaces all three.
 
 ```bash
-python scripts/dev.py all
+python3 scripts/dev.py all
 ```
 
 ```bash
-python scripts/dev.py seed
+python3 scripts/dev.py seed
 ```
 
 ```bash
-python scripts/get_gateway.py
+python3 scripts/get_gateway.py
 ```
 
 ```bash
-python scripts/mcp_probe.py --as claude-desktop
+python3 scripts/mcp_probe.py --as claude-desktop
 ```
 
 `mcp_probe.py` connects as an MCP client and prints the capability surface. It is
@@ -86,15 +86,26 @@ install.bat
 run.bat
 ```
 
-Backend, from `backend/` (venv interpreter is `.venv/Scripts/python` on Windows, `.venv/bin/python`
-elsewhere):
+Tests and lint run **from `backend/`** — that is where the pytest and ruff configuration lives, and
+neither tool finds it from the repository root. The venv interpreter is `.venv/Scripts/python` on
+Windows, `.venv/bin/python` elsewhere.
 
 ```bash
-.venv/bin/python -m pytest tests/
+cd backend && .venv/bin/python -m pytest
 ```
 
 ```bash
-.venv/bin/ruff check .
+cd backend && .venv/bin/ruff check .
+```
+
+The default run is hermetic — no gateway, no credentials, no network. Opt into the rest:
+
+```bash
+cd backend && .venv/bin/python -m pytest -m gateway
+```
+
+```bash
+cd backend && .venv/bin/python -m pytest -m llm
 ```
 
 Python floor is **3.11** (the code uses `BaseExceptionGroup`); the MCP SDK itself allows 3.10.
@@ -138,7 +149,7 @@ the governed path to the same data; the native resource surface stays registered
 
 ### 6.1 Caller identities
 
-Under 2026-07-28, `io.modelcontextprotocol/clientInfo` arrives in `_meta` on **every** request, so each call self-identifies — this is what makes per-call source attribution possible at all. Fill this table with **observed** values during Phase 2B; do not guess, and do not ship a mapping based on a vendor's documentation alone.
+Under 2026-07-28, `io.modelcontextprotocol/clientInfo` arrives in `_meta` on **every** request, so each call self-identifies — this is what makes per-call source attribution possible at all. Fill this table with **observed** values once the hosts are installed; do not guess, and do not ship a mapping based on a vendor's documentation alone.
 
 | Consumer | Connects via | Observed `clientInfo.name` | Attribution method |
 | :--- | :--- | :--- | :--- |
@@ -155,7 +166,9 @@ Open risk: the `mcp-remote` bridge may rewrite or omit `clientInfo`. If it does,
 ## 7. Feature checklist
 
 Tick a box only when its `SPECS.md` acceptance criteria pass **and** a test asserts it.
-Backend suite: **100 tests, green**; `ruff check` clean.
+Suite: **124 tests** — 114 hermetic (default), 7 `-m gateway`, 3 `-m llm`. `ruff check` clean.
+Every criterion in [SPECS.md](SPECS.md) names the test that asserts it, and every one of those
+names exists.
 
 ### 7.1 Shipped
 
@@ -179,6 +192,10 @@ Backend suite: **100 tests, green**; `ruff check` clean.
 - [x] Conversation attribution for our own client; episodes for everyone else
 - [x] Progress reporting end to end (server → client → AG-UI → UI)
 - [x] Retention cap on audit rows
+- [x] Editable tool allowlist from the MCP Servers page (`ALLOW_POLICY_EDIT`)
+- [x] Control Room shell: top menu bar, chat sidebar, collapsible rail
+- [x] Live gateway test suite (`-m gateway`) and real-model suite (`-m llm`)
+- [x] `scripts/mcp_probe.py` — connection check and worked client example
 
 ### 7.2 Open
 
@@ -263,7 +280,11 @@ Learned by testing, not assumed. Keep this list — it is the expensive part of 
 - **`mcp.session.id` is a dead log field** under this revision — sessions were removed from the transport. Correlate on `clientInfo` + `traceparent` instead.
 - **`policies.cors` in the gateway config only affects browser callers.** Native clients send no preflight, so it has zero effect on whether the 5 consumers connect.
 - **A host that "stops logging" may just have a reverted config.** `claude_desktop_config.json` silently reset itself to a direct stdio entry once, routing around the gateway entirely — tools kept working, invisibly. Check the host config before blaming the server.
-- **Tool-call ids are not unique across a conversation.** Some proxies emit turn-scoped ids that reset each turn, so `ActivityPanel.tsx` builds a synthetic React key from message id + position.
+- **Tool-call ids are not unique across a conversation.** Some proxies emit turn-scoped ids that reset each turn, so `ObservabilityRail.tsx` builds a synthetic React key from message id + position.
+- **Flex and grid children default to `min-height: auto`.** They refuse to shrink below their content, so a scroll container nested inside one grows to fit instead of scrolling and everything past the fold is clipped by an ancestor's `overflow: hidden` — with no page scroll to fall back on. Every layout child in `globals.css` sets `min-height: 0` for this reason. This broke chat scrolling once already.
+- **React state updaters must stay pure.** Writing `localStorage` inside a `setState` updater made a toggle silently do nothing, because React may defer or double-invoke updaters. Two separate bugs in this repo had that shape; compute the next value in the handler instead.
+- **`from core.config import settings` captures the singleton at import.** The test harness rebinds it, so a security flag read that way was decided by a stale object. `modules/observability/policy.py` imports the module and reads `config.settings` instead.
+- **CORS `allow_methods` is a real gate.** The allowlist editor's `PUT` failed its preflight and surfaced only as "Failed to fetch" in the browser — invisible in a diff, obvious on the first click.
 - **Reasoning models stream `delta.reasoning_content` separately.** It is deliberately not forwarded to the UI — only `delta.content` is. Never surface chain-of-thought.
 
 ---
