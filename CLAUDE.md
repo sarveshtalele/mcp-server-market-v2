@@ -67,6 +67,15 @@ python scripts/dev.py seed
 python scripts/get_gateway.py
 ```
 
+```bash
+python scripts/mcp_probe.py --as claude-desktop
+```
+
+`mcp_probe.py` connects as an MCP client and prints the capability surface. It is
+the fastest way to see the gateway's behaviour (run it against `:3111` and then
+`--url http://127.0.0.1:8000/mcp` and compare), and `--as` drives audit
+attribution without needing a real host installed.
+
 Windows has a one-shot installer and launcher wrapping the same scripts:
 
 ```bat

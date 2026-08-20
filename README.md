@@ -400,7 +400,168 @@ dedicated gateway listener for that host so the route becomes the identity; see
 
 ---
 
-## 5. What the server exposes
+## 5. Use it as an MCP client
+
+Wiring a host (§4) makes the tools available. This section is about actually
+using them, and about talking to the server from your own code.
+
+### 5.1 Check your connection in one command
+
+```bash
+python scripts/mcp_probe.py
+```
+
+It connects as a client, prints the protocol version, every tool, resource and
+prompt, calls `get_company`, and tells you where to see the call in the Audit
+Log. Real output through the gateway:
+
+```
+connected to      http://127.0.0.1:3111/mcp
+identifying as    mcp-probe
+protocol version  2026-07-28
+server            stock-exchange 2.0.0
+
+tools (11):
+  get_company
+  search_companies
+  ...
+
+tools/list cache  ttlMs=0 cacheScope=private resultType=complete
+
+resources (0):
+
+prompts (0):
+
+note: no resources or prompts listed. agentgateway does not
+      proxy them — use the read_market_resource tool, which
+      passes through and stays audited.
+```
+
+Point it at the backend directly and the difference is visible immediately —
+this is the gateway limitation from §6, not a broken server:
+
+```bash
+python scripts/mcp_probe.py --url http://127.0.0.1:8000/mcp
+```
+
+```
+tools/list cache  ttlMs=3600000 cacheScope=public resultType=complete
+
+resources (2):
+  market://companies
+  market://sectors
+  market://companies/{symbol}
+  market://filings/{symbol}/latest
+  market://filings/{symbol}/{period}
+
+prompts (2):
+  analyze-equity
+  compare-stocks
+```
+
+Use `--as` to impersonate a host and watch attribution work without installing
+anything:
+
+```bash
+python scripts/mcp_probe.py --as claude-desktop
+```
+
+That call shows up in the Audit Log tagged `claude-desktop`. A name the server
+does not recognise is recorded as `unknown` rather than guessed — see §7 for how
+to extend the mapping.
+
+### 5.2 Using it inside a host
+
+Once connected, just ask. The host decides when to call a tool; you do not
+invoke them by name, though naming one usually nudges it:
+
+- *"Show me AAPL's company profile"* → `get_company`
+- *"Compare JPM, BAC and WFC on ROE"* → `compare_companies`, possibly
+  `calc_financial_ratios`
+- *"Which Technology companies are largest by market cap?"* → `sector_ranking`
+- *"What's NVDA's revenue trend?"* → `calc_revenue_growth`
+- *"Read market://companies/MSFT"* → `read_market_resource`
+
+**Resources and prompts.** In a host connected through the gateway they will not
+appear in the attach/prompt menus, because the gateway does not forward them.
+Ask for the URI instead and the model will use `read_market_resource`:
+
+> Read `market://filings/AAPL/latest` and summarise the quarter.
+
+The two prompts (`analyze-equity`, `compare-stocks`) are server-declared
+workflows. Through the gateway, ask for them in words:
+
+> Run an analyze-equity memo for AAPL.
+
+**Expect it to refuse from memory.** The server ships `instructions` telling
+clients to answer only from tool results and to say so when a call fails. If you
+ask about a ticker that is not in the synthetic dataset, a well-behaved host will
+tell you rather than inventing figures.
+
+### 5.3 The built-in terminal client
+
+The repo ships its own MCP client — useful for testing the server without a
+browser or an IDE:
+
+```bash
+cd backend && .venv/bin/python -m mcp_client.cli_chat
+```
+
+It connects through the gateway, adapts the MCP tools to OpenAI
+function-calling, and runs a tool loop in your terminal. It needs `LLM_API_KEY`
+in `backend/.env` (§2.4); without it, it exits with
+`Set LLM_API_KEY and LLM_BASE_URL in backend/.env.`
+
+### 5.4 Writing your own client
+
+The whole client is about fifteen lines with the official SDK
+(`pip install "mcp>=2.0,<3"`):
+
+```python
+import asyncio
+from mcp import Client, Implementation
+
+async def main():
+    async with Client(
+        "http://127.0.0.1:3111/mcp",
+        client_info=Implementation(name="my-app", version="1.0.0"),
+        mode="2026-07-28",
+    ) as client:
+        tools = await client.list_tools()
+        print([t.name for t in tools.tools])
+
+        result = await client.call_tool("get_company", {"symbol": "AAPL"})
+        print(result.content[0].text)
+
+asyncio.run(main())
+```
+
+Three things worth knowing:
+
+- **`client_info` is your identity.** It travels in `_meta` on every request
+  under 2026-07-28 and is what the Audit Log attributes the call to. Pick
+  something recognisable.
+- **`mode="2026-07-28"` pins the revision.** Left on `"auto"` the SDK would
+  happily negotiate an older one; this server only serves 2026-07-28.
+- **Point at the gateway**, not `:8000/mcp`. A direct connection works and is
+  invisible to the audit log, which defeats the point.
+
+To correlate calls with your own conversations, pass a conversation id — MCP has
+no field for one, so the W3C `baggage` key is the reserved slot for exactly this:
+
+```python
+await client.call_tool(
+    "get_company",
+    {"symbol": "AAPL"},
+    meta={"baggage": "conversationId=my-thread-1"},
+)
+```
+
+`scripts/mcp_probe.py` is a longer worked example of all of the above.
+
+---
+
+## 6. What the server exposes
 
 **11 tools** — `get_company`, `search_companies`, `list_sectors`, `get_filings`,
 `get_latest_filing`, `calc_financial_ratios`, `calc_revenue_growth`, `compare_companies`,
@@ -422,7 +583,7 @@ below).
 
 ---
 
-## 6. Observability
+## 7. Observability
 
 Every MCP request that reaches the server is recorded with: timestamp, source, caller name and
 version, method, tool or resource name, a truncated argument preview, status, error code, latency,
@@ -447,7 +608,7 @@ timing, never presented as a conversation.
 
 ---
 
-## 7. Develop
+## 8. Develop
 
 ```bash
 backend/.venv/bin/python -m pytest tests/
@@ -478,7 +639,7 @@ criteria, [MIGRATION_PLAN.md](MIGRATION_PLAN.md) for why the architecture looks 
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Cause |
 | :--- | :--- |
@@ -486,6 +647,6 @@ criteria, [MIGRATION_PLAN.md](MIGRATION_PLAN.md) for why the architecture looks 
 | Chat replies "LLM_API_KEY is not set" | Expected without credentials. Everything except the chat still works. |
 | Audit Log is empty | Nothing has called the server yet, or a host is wired directly to `:8000` and bypassing the gateway. |
 | `421 Misdirected Request` on `/mcp` | The `Host` header is not a loopback address. The endpoint binds to localhost and validates `Origin`/`Host` — mandatory for this transport. |
-| Host connects but resources and prompts are missing | The gateway does not proxy them; use `read_market_resource`. See §5. |
+| Host connects but resources and prompts are missing | The gateway does not proxy them; use `read_market_resource`. See §6. |
 | `-32022 Unsupported protocol version` | Something is speaking an older MCP revision. This server is 2026-07-28 only; set `STRICT_PROTOCOL=false` to also accept the legacy handshake. |
 | macOS: "cannot be opened because the developer cannot be verified" | Gatekeeper quarantined the gateway binary. See §2.3. |
