@@ -40,13 +40,15 @@ the web chat needs a model.
 
 ### 2.0 Windows: one command
 
+**Clone the repository — do not copy the folder from another machine.**
+
 ```bat
+git clone https://github.com/sarveshtalele/mcp-server-market-v2.git
+cd mcp-server-market-v2
 install.bat
 ```
 
-That checks your Python version, creates the virtualenv, installs backend and
-frontend dependencies, downloads and verifies agentgateway, seeds the dataset and
-writes both `.env` files. Then:
+Then start everything:
 
 ```bat
 run.bat
@@ -54,6 +56,50 @@ run.bat
 
 `run.bat` also takes a target: `run.bat backend`, `run.bat gateway`,
 `run.bat frontend`, `run.bat seed`.
+
+#### What install.bat does
+
+Seven steps: checks Python is 3.11+, creates `backend\.venv`, installs the backend
+dependencies, downloads the **Windows** agentgateway build and verifies its
+published SHA-256, seeds the synthetic dataset, writes `backend\.env` and
+`frontend\.env.local` from the examples, and installs the frontend dependencies.
+
+It never overwrites an existing `.env`, so re-running it is safe.
+
+If npm is missing the install still succeeds — you get the MCP server, the REST
+API and the audit log, just no browser UI.
+
+#### Prerequisites it does not install for you
+
+| Need | Notes |
+| :--- | :--- |
+| **Python 3.11+** | <https://www.python.org/downloads/> — tick *Add python.exe to PATH* during setup |
+| **Node.js 18+** | <https://nodejs.org/> — only for the Control Room web UI, and for the `mcp-remote` bridge that Claude Desktop and Antigravity use |
+| **git** | To clone |
+
+#### Why clone rather than copy the folder
+
+A working checkout is ~3 MB in git but around 545 MB on disk. The difference is
+machine-specific and must not travel between systems:
+
+| Not in the repo | Size | Why copying it breaks |
+| :--- | :--- | :--- |
+| `backend\.venv` | ~166 MB | Absolute paths and platform binaries are baked in; a macOS or Linux venv cannot run on Windows |
+| `frontend\node_modules` | ~256 MB | Native modules are compiled per OS and architecture |
+| `backend\mcp_server\gateway\bin` | ~81 MB | The gateway binary is per-platform — a macOS build will not execute on Windows |
+| `backend\*.db` | ~220 KB | Regenerated deterministically by the seeder |
+| `backend\.env` | — | Your LLM credentials; gitignored on purpose |
+| `frontend\.next` | ~49 MB | Build output |
+
+All of it is gitignored, and `install.bat` rebuilds each piece for the machine it
+runs on.
+
+> **Caveat, stated plainly.** `install.bat` and `run.bat` were written for Windows
+> and are syntax-checked (plain ASCII, verified programmatically — a stray em dash
+> in a `.ps1` broke this project's parser once before), but they have only ever
+> been *executed* on macOS. Your first Windows run is genuinely their first run.
+> If a step fails, the script stops and names which of the seven it was, and the
+> equivalent manual steps are in 2.1–2.4 below.
 
 macOS and Linux users, and anyone who wants to see each step, follow 2.1–2.4.
 
