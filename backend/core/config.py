@@ -55,10 +55,17 @@ class Settings(BaseSettings):
     mcp_path: str = "/mcp"
     # Freshness hint returned on cacheable results (1 hour).
     mcp_cache_ttl_ms: int = 3_600_000
-    # Serve only PROTOCOL_VERSION. The SDK would otherwise also answer the
-    # legacy 2025-11-25 initialize handshake. Set false if a bridge such as
-    # mcp-remote turns out to require the older revision.
-    strict_protocol: bool = True
+    # Refuse anything other than PROTOCOL_VERSION.
+    #
+    # Default OFF, and that default is load-bearing: `mcp-remote` — the bridge
+    # Claude Desktop and Antigravity use — opens with the legacy `initialize`
+    # handshake. With strict mode on it is refused with -32022 and neither host
+    # can connect at all. SDK v2 serves both revisions from the same endpoint,
+    # so leaving this off costs nothing and keeps every host working.
+    #
+    # Set true for single-revision conformance testing, accepting that the two
+    # bridged hosts will drop off until `mcp-remote` speaks 2026-07-28.
+    strict_protocol: bool = False
 
     # Where MCP clients connect. This is the GATEWAY, not the backend: every
     # consumer goes through agentgateway so that all calls land in one audit

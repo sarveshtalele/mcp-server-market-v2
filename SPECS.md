@@ -111,7 +111,7 @@ Infrastructure gets no exemption: `observability` is an ordinary router-only mod
 | 3.1 | A POST without `MCP-Protocol-Version` is rejected `400` | `test_post_without_protocol_header_is_rejected` | ✅ |
 | 3.2 | A header disagreeing with the body returns `-32020` | `test_header_body_mismatch_is_rejected` | ✅ |
 | 3.3 | Missing `clientCapabilities` returns `-32602` | `test_missing_client_capabilities_is_invalid_params` | ✅ |
-| 3.4 | An unsupported revision returns `-32022` listing supported versions | `test_unsupported_protocol_version_is_rejected` | ✅ |
+| 3.4 | An unsupported revision returns `-32022` listing supported versions (strict mode) | `test_strict_mode_rejects_an_older_revision` | ✅ |
 
 ### MCP-4 — Results
 
@@ -125,16 +125,18 @@ Infrastructure gets no exemption: `observability` is an ordinary router-only mod
 > one. Order here is registry order — `(priority, name)` across modules, then declaration order
 > within a module — which is reproducible across restarts and is what the test asserts.
 
-### MCP-5 — Single revision ⛔ by decision D-3
+### MCP-5 — Revision policy
 
-The server implements `2026-07-28` only. SDK v2 would otherwise also answer the legacy
-`2025-11-25` handshake from the same endpoint with no switch to disable it, so
-`ProtocolGuardMiddleware` enforces the policy.
+Decision D-3 asked for `2026-07-28` only. That was **reversed by measurement**: `mcp-remote`, the
+bridge Claude Desktop and Antigravity use, opens with the legacy `initialize` handshake, so a strict
+server locks both hosts out entirely. SDK v2 answers both revisions from one endpoint, so the
+shipped default is permissive and `ProtocolGuardMiddleware` enforces strictness only when asked.
 
 | # | Acceptance criterion | Test | |
 | :-- | :--- | :--- | :-- |
-| 5.1 | A legacy `initialize` handshake is refused | `test_legacy_initialize_handshake_is_refused` | ✅ |
-| 5.2 | `STRICT_PROTOCOL=false` restores dual-revision support | — | 🔍 configuration switch |
+| 5.1 | The legacy handshake is accepted by default, so bridged hosts connect | `test_legacy_initialize_handshake_is_accepted_by_default` | ✅ |
+| 5.2 | With `strict=True` an older revision is refused with `-32022` | `test_strict_mode_rejects_an_older_revision` | ✅ |
+| 5.3 | With `strict=True` the legacy handshake is refused | `test_strict_mode_rejects_the_legacy_handshake` | ✅ |
 
 ### MCP-6 — Out of scope ⛔
 
@@ -315,7 +317,12 @@ attribution possible; earlier revisions announced identity once, at `initialize`
 | 2.3 | A gateway route is the fallback when `clientInfo` is unusable | `test_route_hint_is_the_fallback` | ✅ |
 | 2.4 | `clientInfo` is extracted correctly, and absence is handled | `test_client_info_extraction` | ✅ |
 | 2.5 | A caller with no usable identity is recorded as unknown | `test_unknown_caller_is_recorded_as_unknown` | ✅ |
-| 2.6 | Observed `clientInfo` for the four external hosts is recorded in `CLAUDE.md` §6.1 | — | ⛔ open: requires the hosts installed |
+| 2.6 | A legacy `initialize` yields identity from `params.clientInfo` | `test_identity_from_a_legacy_initialize` | ✅ |
+| 2.7 | Missing legacy identity degrades cleanly | `test_legacy_params_without_identity` | ✅ |
+| 2.8 | Session identity is remembered across later calls, and bounded | `test_session_identity_is_remembered_and_bounded` | ✅ |
+| 2.9 | A bridged host is attributed, not left `unknown` | `test_a_bridged_call_is_attributed_not_unknown` | ✅ |
+| 2.10 | Per-request `_meta` identity beats a remembered session | `test_meta_identity_wins_over_a_remembered_session` | ✅ |
+| 2.11 | Observed `clientInfo` for the remaining hosts recorded in `CLAUDE.md` §6.1 | — | 🔍 Claude Desktop confirmed as `claude-ai (via mcp-remote 0.1.37)` |
 
 ### OBS-3 — Conversation and episode
 

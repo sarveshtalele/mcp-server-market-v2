@@ -412,3 +412,67 @@ def test_gateway_logs_raw_is_still_available(live_server) -> None:
     response = httpx2.get(f"{live_server}/observability/gateway-logs/raw", timeout=10)
     assert response.status_code == 200
     assert "stdout" in response.text
+
+
+# --- bridged hosts (legacy handshake) --------------------------------------
+
+
+def test_identity_from_a_legacy_initialize() -> None:
+    """OBS-2 — `mcp-remote` speaks the older revision, where identity is sent
+    once in initialize.params, not in per-request _meta."""
+    name, version = attr.client_info_from_params(
+        {"clientInfo": {"name": "claude-ai (via mcp-remote 0.1.37)", "version": "0.13.0"}}
+    )
+    assert name == "claude-ai (via mcp-remote 0.1.37)"
+    assert version == "0.13.0"
+    assert attr.source_for(name) == "claude-desktop"
+
+
+def test_legacy_params_without_identity() -> None:
+    assert attr.client_info_from_params({}) == (None, None)
+    assert attr.client_info_from_params(None) == (None, None)
+
+
+def test_session_identity_is_remembered_and_bounded(obs_db) -> None:
+    """The calls after `initialize` carry no identity of their own.
+
+    Sessions were removed from the 2026-07-28 transport, but the compatibility
+    path still mints one, and it is the only thing tying a bridged host's later
+    calls back to who it said it was.
+    """
+    from modules.observability import recorder
+
+    recorder.remember_session_identity("sess-1", "claude-ai", "0.13.0")
+    assert recorder.identity_for_session("sess-1") == ("claude-ai", "0.13.0")
+    assert recorder.identity_for_session("nope") == (None, None)
+    assert recorder.identity_for_session(None) == (None, None)
+
+    # Anonymous identities are not worth remembering.
+    recorder.remember_session_identity("sess-2", None, None)
+    assert recorder.identity_for_session("sess-2") == (None, None)
+
+    # Bounded: a long-running server must not accumulate identities forever.
+    for i in range(recorder._SESSION_IDENTITY_MAX + 20):
+        recorder.remember_session_identity(f"bulk-{i}", f"client-{i}", "1")
+    assert len(recorder._SESSION_IDENTITY) <= recorder._SESSION_IDENTITY_MAX
+
+
+def test_a_bridged_call_is_attributed_not_unknown(obs_db) -> None:
+    """OBS-2.3 — the whole point: Claude Desktop must not land as `unknown`."""
+    row = record(
+        method="tools/call",
+        params={"name": "get_company", "_meta": {}},
+        identity=("claude-ai (via mcp-remote 0.1.37)", "0.13.0"),
+    )
+    assert row["source"] == "claude-desktop"
+    assert row["caller_name"].startswith("claude-ai")
+
+
+def test_meta_identity_wins_over_a_remembered_session(obs_db) -> None:
+    """A modern client states who it is on every request; trust that first."""
+    row = record(
+        method="tools/call",
+        params={"name": "get_company", "_meta": _meta("control-room")},
+        identity=("claude-ai", "0.13.0"),
+    )
+    assert row["source"] == "control-room"

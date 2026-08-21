@@ -3,7 +3,11 @@
   "mcpServers": {
     "mcp-market-mcp-server": {
       "command": "npx",
-      "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://127.0.0.1:3111/mcp"
+      ]
     }
   }
 }

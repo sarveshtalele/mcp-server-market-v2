@@ -331,6 +331,13 @@ of just this one, put the same block in your user `settings.json` under `"mcp"`.
 Claude Desktop's config file does not accept a plain remote `type: http` entry, so it reaches the
 gateway through the `mcp-remote` bridge. That needs **Node.js on PATH** (`npx` must resolve).
 
+> **The bridge speaks the older revision.** Measured, not assumed: `mcp-remote` opens with the
+> legacy `initialize` handshake, which a strict 2026-07-28 server refuses with `-32022` — Desktop
+> then logs *"Server transport closed unexpectedly"* and gives up. This is why `STRICT_PROTOCOL`
+> **defaults to false**: SDK v2 answers both revisions from the same endpoint, so every host works
+> out of the box. Calls arriving this way are still attributed correctly in the Audit Log
+> (`claude-ai (via mcp-remote …)` → `claude-desktop`).
+
 Config file location:
 
 | OS | Path |
@@ -345,7 +352,7 @@ Merge in the contents of [claude_desktop_config.example.json](claude_desktop_con
   "mcpServers": {
     "mcp-market-mcp-server": {
       "command": "npx",
-      "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
+      "args": ["-y", "mcp-remote", "http://127.0.0.1:3111/mcp"]
     }
   }
 }
@@ -369,7 +376,7 @@ see [integrations/antigravity.mcp.example.json](integrations/antigravity.mcp.exa
   "mcpServers": {
     "mcp-market-mcp-server": {
       "command": "npx",
-      "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
+      "args": ["-y", "mcp-remote", "http://127.0.0.1:3111/mcp"]
     }
   }
 }
@@ -623,8 +630,11 @@ ALLOW_POLICY_EDIT=false
 
 The page then renders read-only and the endpoint returns `403`.
 
-**Attribution** comes from `io.modelcontextprotocol/clientInfo`. A caller that sends nothing usable
-is recorded as `unknown` — never guessed. Override the mapping without touching code:
+**Attribution** comes from `io.modelcontextprotocol/clientInfo`, which travels in `_meta` on every
+request under 2026-07-28. Hosts arriving through `mcp-remote` speak the older revision and send
+identity only once, at `initialize`; those are correlated across later calls via the session id the
+compatibility path issues. A caller that sends nothing usable is recorded as `unknown` — never
+guessed. Override the mapping without touching code:
 
 ```bash
 MCP_SOURCE_PATTERNS='{"my-host":"my-label"}'
@@ -695,5 +705,7 @@ criteria, [MIGRATION_PLAN.md](MIGRATION_PLAN.md) for why the architecture looks 
 | Audit Log is empty | Nothing has called the server yet, or a host is wired directly to `:8000` and bypassing the gateway. |
 | `421 Misdirected Request` on `/mcp` | The `Host` header is not a loopback address. The endpoint binds to localhost and validates `Origin`/`Host` — mandatory for this transport. |
 | Host connects but resources and prompts are missing | The gateway does not proxy them; use `read_market_resource`. See §6. |
-| `-32022 Unsupported protocol version` | Something is speaking an older MCP revision. This server is 2026-07-28 only; set `STRICT_PROTOCOL=false` to also accept the legacy handshake. |
+| `-32022 Unsupported protocol version` | Only happens with `STRICT_PROTOCOL=true`. The `mcp-remote` bridge used by Claude Desktop and Antigravity opens with the legacy handshake, so strict mode locks both hosts out. Leave it false (the default) unless you are doing single-revision conformance work. |
+| Claude Desktop: *"Server transport closed unexpectedly"* | Almost always the above — check the Desktop log for `-32022`. Otherwise: the stack is not running (`run.bat` / `python3 scripts/dev.py all`), or Node is not on PATH so `npx` cannot start the bridge. |
+| A host shows in the log as `unknown` | It sent no usable identity. Bridged hosts are correlated through the session the compatibility path mints; if that is missing, give the host its own gateway route. |
 | macOS: "cannot be opened because the developer cannot be verified" | Gatekeeper quarantined the gateway binary. See §2.3. |

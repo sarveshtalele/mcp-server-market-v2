@@ -155,8 +155,8 @@ Under 2026-07-28, `io.modelcontextprotocol/clientInfo` arrives in `_meta` on **e
 | :--- | :--- | :--- | :--- |
 | Claude Code | `.mcp.json`, `type: http` → `:3111/mcp` | _TBD_ | clientInfo |
 | VS Code Copilot | `.vscode/mcp.json`, `type: http` | _TBD_ | clientInfo |
-| Claude Desktop | `mcp-remote` bridge | _TBD_ | clientInfo, else dedicated route |
-| Antigravity | `mcp-remote` bridge | _TBD_ | clientInfo, else dedicated route |
+| Claude Desktop | `mcp-remote` bridge | `claude-ai (via mcp-remote 0.1.37)` — **measured** | legacy `initialize`, correlated by session |
+| Antigravity | `mcp-remote` bridge | _TBD_ — expect the same `via mcp-remote` shape | legacy `initialize`, correlated by session |
 | This repo's web agent | `MCPToolClient` → `:3111/mcp` | set explicitly by us | clientInfo |
 
 Open risk: the `mcp-remote` bridge may rewrite or omit `clientInfo`. If it does, the two bridged hosts get their own gateway route and are attributed by route instead. Never infer a source — an unattributed call is logged `source=unknown`.
@@ -281,6 +281,9 @@ Learned by testing, not assumed. Keep this list — it is the expensive part of 
 - **`policies.cors` in the gateway config only affects browser callers.** Native clients send no preflight, so it has zero effect on whether the 5 consumers connect.
 - **A host that "stops logging" may just have a reverted config.** `claude_desktop_config.json` silently reset itself to a direct stdio entry once, routing around the gateway entirely — tools kept working, invisibly. Check the host config before blaming the server.
 - **Tool-call ids are not unique across a conversation.** Some proxies emit turn-scoped ids that reset each turn, so `ObservabilityRail.tsx` builds a synthetic React key from message id + position.
+- **`mcp-remote` speaks the legacy revision.** Measured against the real bridge: it opens with `initialize`, so a strict 2026-07-28 server refuses it with `-32022` and Claude Desktop / Antigravity cannot connect at all. `STRICT_PROTOCOL` therefore defaults to **false**; that default is load-bearing, not laziness.
+- **Sessions are gone from the transport, but the compatibility path still mints one** — and it is the only thing that ties a bridged host's later calls back to the identity it gave at `initialize`. Without that correlation every bridged host lands in the audit log as `unknown`.
+- **CSS for rendered markdown lives with the chat styles.** A layout rewrite dropped every `.md-*` rule, leaving tables and headings at browser defaults — raw-looking prose beside styled tool cards. The renderer emits `md`, `md-p`, `md-h`, `md-list`, `md-hr`, `md-table`, `md-tablewrap`; if you rewrite `globals.css`, carry them over.
 - **Flex and grid children default to `min-height: auto`.** They refuse to shrink below their content, so a scroll container nested inside one grows to fit instead of scrolling and everything past the fold is clipped by an ancestor's `overflow: hidden` — with no page scroll to fall back on. Every layout child in `globals.css` sets `min-height: 0` for this reason. This broke chat scrolling once already.
 - **React state updaters must stay pure.** Writing `localStorage` inside a `setState` updater made a toggle silently do nothing, because React may defer or double-invoke updaters. Two separate bugs in this repo had that shape; compute the next value in the handler instead.
 - **`from core.config import settings` captures the singleton at import.** The test harness rebinds it, so a security flag read that way was decided by a stale object. `modules/observability/policy.py` imports the module and reads `config.settings` instead.

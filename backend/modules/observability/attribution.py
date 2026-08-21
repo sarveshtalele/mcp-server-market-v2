@@ -85,7 +85,24 @@ def client_info_from_meta(meta: Any) -> tuple[str | None, str | None]:
     """Extract (name, version) from a request's ``_meta`` block."""
     if not isinstance(meta, dict):
         return None, None
-    info = meta.get("io.modelcontextprotocol/clientInfo")
+    return _name_version(meta.get("io.modelcontextprotocol/clientInfo"))
+
+
+def client_info_from_params(params: Any) -> tuple[str | None, str | None]:
+    """Extract identity from a legacy ``initialize`` request.
+
+    Under 2026-07-28 identity rides in ``_meta`` on every request. A client
+    arriving through the `mcp-remote` bridge speaks the older revision, where
+    identity appears once, in ``initialize.params.clientInfo``. Without this
+    fallback every bridged host — Claude Desktop, Antigravity — lands in the
+    audit log as ``unknown``, which defeats the point of the audit log.
+    """
+    if not isinstance(params, dict):
+        return None, None
+    return _name_version(params.get("clientInfo"))
+
+
+def _name_version(info: Any) -> tuple[str | None, str | None]:
     if not isinstance(info, dict):
         return None, None
     name = info.get("name")

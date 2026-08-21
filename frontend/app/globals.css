@@ -338,6 +338,60 @@ button { font-family: inherit; }
 }
 .empty__item:hover { border-color: var(--tertiary); color: var(--tertiary); }
 
+/* ---------- rendered assistant markdown ----------
+   These rules were lost in a layout rewrite, which left every table, heading
+   and list at browser defaults - raw-looking prose sitting next to styled tool
+   cards. Keep them next to the chat styles they belong to. */
+
+.md { font-size: 13px; line-height: 1.6; }
+.md > *:first-child { margin-top: 0; }
+.md > *:last-child { margin-bottom: 0; }
+
+.md-p { margin: 0 0 10px; }
+
+.md-h {
+  font-weight: 650; letter-spacing: -0.01em; line-height: 1.3;
+  margin: var(--s-lg) 0 var(--s-sm);
+}
+h3.md-h { font-size: 15px; }
+h4.md-h { font-size: 14px; }
+h5.md-h, h6.md-h {
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 750;
+}
+
+.md-list { margin: 0 0 10px; padding-left: 20px; }
+.md-list li { margin: 3px 0; }
+
+.md-hr { border: 0; border-top: 1px solid var(--border); margin: var(--s-lg) 0; }
+
+.md code {
+  font: 11.5px var(--mono);
+  background: var(--surface-elevated);
+  padding: 1px 5px; border-radius: var(--r-sm);
+}
+.md strong { font-weight: 650; }
+
+/* Tables scroll inside their own box rather than widening the message. */
+.md-tablewrap {
+  overflow-x: auto; margin: 0 0 var(--s-md);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface);
+}
+.md-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.md-table th {
+  text-align: left; font-size: 10px; letter-spacing: 0.06em; font-weight: 750;
+  text-transform: uppercase; color: var(--text-muted);
+  background: var(--surface-subtle);
+  padding: 8px 11px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.md-table td {
+  padding: 7px 11px; border-bottom: 1px solid var(--border); vertical-align: top;
+}
+.md-table tr:last-child td { border-bottom: 0; }
+/* Numeric columns read better right-aligned and in mono. */
+.md-table td:not(:first-child) { font-family: var(--mono); font-size: 11.5px; }
+
 /* ---------- observability rail ---------- */
 
 .rail {

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections import OrderedDict
 from datetime import UTC, datetime
 from typing import Any
 
@@ -29,6 +30,35 @@ from modules.observability.models import McpCall
 from modules.observability.store import ObsSessionLocal
 
 log = get_logger("observability")
+
+# Legacy-handshake identity, keyed by the session id the compatibility path
+# mints. Under 2026-07-28 identity travels in `_meta` on every request and none
+# of this is needed — but a client arriving through the `mcp-remote` bridge
+# speaks the older revision, where identity is sent once, at `initialize`.
+# Sessions were removed from the transport in this revision; the compatibility
+# path still issues one, and that is what makes bridged hosts attributable.
+# Bounded so a long-running server cannot accumulate identities without limit.
+_SESSION_IDENTITY: OrderedDict[str, tuple[str | None, str | None]] = OrderedDict()
+_SESSION_IDENTITY_MAX = 256
+
+
+def remember_session_identity(session_id: str, name: str | None, version: str | None) -> None:
+    if not session_id or not name:
+        return
+    _SESSION_IDENTITY[session_id] = (name, version)
+    _SESSION_IDENTITY.move_to_end(session_id)
+    while len(_SESSION_IDENTITY) > _SESSION_IDENTITY_MAX:
+        _SESSION_IDENTITY.popitem(last=False)
+
+
+def identity_for_session(session_id: str | None) -> tuple[str | None, str | None]:
+    if not session_id:
+        return None, None
+    found = _SESSION_IDENTITY.get(session_id)
+    if found:
+        _SESSION_IDENTITY.move_to_end(session_id)
+        return found
+    return None, None
 
 # JSON-RPC methods whose "name" is worth recording, and what kind of thing it is.
 _RESOURCE_TYPE = {
@@ -70,12 +100,15 @@ def record(
     via: str = "backend",
     route_hint: str | None = None,
     ts: datetime | None = None,
+    identity: tuple[str | None, str | None] | None = None,
 ) -> dict:
     """Write one audit row and publish it to live listeners. Returns the row."""
     params = params or {}
     meta = params.get("_meta") if isinstance(params.get("_meta"), dict) else {}
 
     caller_name, caller_version = attr.client_info_from_meta(meta)
+    if not caller_name and identity:
+        caller_name, caller_version = identity
     source = attr.source_for(caller_name, route_hint)
     when = ts or datetime.now(UTC).replace(tzinfo=None)
 
@@ -179,7 +212,12 @@ class CallRecorderMiddleware:
         method = str(request.get("method") or "")
         params = request.get("params") if isinstance(request.get("params"), dict) else {}
 
-        state: dict[str, Any] = {"status": 200, "chunks": bytearray(), "json": False}
+        state: dict[str, Any] = {
+            "status": 200,
+            "chunks": bytearray(),
+            "json": False,
+            "session_id": None,
+        }
         started = time.perf_counter()
 
         async def capture(message: dict) -> None:
@@ -190,11 +228,18 @@ class CallRecorderMiddleware:
                     for k, v in message.get("headers", [])
                 }
                 state["json"] = "application/json" in headers.get("content-type", "")
+                # The 2026-07-28 transport has no sessions, but the legacy
+                # compatibility path still mints one — and it is the only thing
+                # that ties a bridged host's later calls back to the identity it
+                # gave at `initialize`.
+                state["session_id"] = headers.get("mcp-session-id")
             elif message["type"] == "http.response.body" and state["json"]:
                 # Bounded: only enough to read a JSON-RPC error object.
                 if len(state["chunks"]) < 65_536:
                     state["chunks"].extend(message.get("body", b""))
             await send(message)
+
+        request_session = _header(scope, "mcp-session-id")
 
         try:
             await self.app(scope, replay, capture)
@@ -202,10 +247,24 @@ class CallRecorderMiddleware:
             if method:
                 elapsed = (time.perf_counter() - started) * 1000
                 status, code, message_text = _outcome(state)
+
+                # A legacy `initialize` carries identity in its params; remember
+                # it against the session the server just issued, so the calls
+                # that follow are attributable too.
+                identity: tuple[str | None, str | None] | None = None
+                if method == "initialize":
+                    identity = attr.client_info_from_params(params)
+                    remember_session_identity(
+                        state.get("session_id") or request_session or "", *identity
+                    )
+                elif request_session:
+                    identity = identity_for_session(request_session)
+
                 try:
                     record(
                         method=method,
                         params=params,
+                        identity=identity,
                         status=status,
                         error_code=code,
                         error_message=message_text,

@@ -1,9 +1,13 @@
 {
-  "_comment": "Merge into your Claude Desktop config, then fully quit and relaunch Desktop (closing the window is not enough). Location: macOS ~/Library/Application Support/Claude/claude_desktop_config.json, Windows %APPDATA%\\Claude\\claude_desktop_config.json. This points at agentgateway on :3111, never at the backend on :8000 — a direct connection works but is invisible to the audit log. Claude Desktop's config format does not accept a plain remote 'type: http' entry, so it uses the mcp-remote bridge (needs Node/npx on PATH). Start everything first with: python scripts/dev.py all",
+  "_comment": "Merge into your Claude Desktop config, then fully quit and relaunch Desktop (closing the window is not enough). Location: macOS ~/Library/Application Support/Claude/claude_desktop_config.json, Windows %APPDATA%\\Claude\\claude_desktop_config.json. This points at agentgateway on :3111, never at the backend on :8000 \u2014 a direct connection works but is invisible to the audit log. Claude Desktop's config format does not accept a plain remote 'type: http' entry, so it uses the mcp-remote bridge (needs Node/npx on PATH). Start everything first with: python scripts/dev.py all",
   "mcpServers": {
     "mcp-market-mcp-server": {
       "command": "npx",
-      "args": ["mcp-remote", "http://127.0.0.1:3111/mcp"]
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://127.0.0.1:3111/mcp"
+      ]
     }
   }
 }

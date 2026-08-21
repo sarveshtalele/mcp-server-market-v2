@@ -71,22 +71,70 @@ def test_header_body_mismatch_is_rejected(live_server) -> None:
     assert response.json()["error"]["code"] == -32020
 
 
-def test_unsupported_protocol_version_is_rejected(live_server) -> None:
-    """MCP-3.4 — the server is 2026-07-28 only (decision D-3)."""
-    body = _rpc("tools/list")
-    body["params"]["_meta"]["io.modelcontextprotocol/protocolVersion"] = "2025-11-25"
-    response = httpx2.post(
-        f"{live_server}/mcp",
-        json=body,
-        headers=_headers("tools/list", **{"MCP-Protocol-Version": "2025-11-25"}),
-        timeout=10,
-    )
-    assert response.status_code == 400
-    assert response.json()["error"]["code"] == -32022
+async def test_strict_mode_rejects_an_older_revision() -> None:
+    """MCP-3.4 / MCP-5 — what STRICT_PROTOCOL=true actually enforces.
+
+    Exercised against the guard directly rather than the running server, so the
+    assertion holds regardless of how the deployment is configured. The shipped
+    default is dual-revision; see the test below for why.
+    """
+    from app.middleware import ProtocolGuardMiddleware
+
+    sent: list[dict] = []
+
+    async def receive():
+        body = json.dumps(_rpc("tools/list")).encode()
+        body = body.replace(PROTOCOL_VERSION.encode(), b"2025-11-25")
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    async def never_called(scope, receive_, send_):  # pragma: no cover
+        raise AssertionError("the guard must not forward an unsupported revision")
+
+    guard = ProtocolGuardMiddleware(never_called, version=PROTOCOL_VERSION, strict=True)
+    await guard({"type": "http", "method": "POST", "headers": []}, receive, send)
+
+    assert sent[0]["status"] == 400
+    error = json.loads(sent[1]["body"])["error"]
+    assert error["code"] == -32022
+    assert error["data"]["supported"] == [PROTOCOL_VERSION]
 
 
-def test_legacy_initialize_handshake_is_refused(live_server) -> None:
-    """MCP-5 — no handshake support; this revision is stateless."""
+async def test_strict_mode_rejects_the_legacy_handshake() -> None:
+    """The reason the default is off: this is what bridged hosts hit."""
+    from app.middleware import ProtocolGuardMiddleware
+
+    sent: list[dict] = []
+
+    async def receive():
+        body = json.dumps(
+            {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}}
+        ).encode()
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    async def never_called(scope, receive_, send_):  # pragma: no cover
+        raise AssertionError("the guard must not forward a legacy handshake")
+
+    guard = ProtocolGuardMiddleware(never_called, version=PROTOCOL_VERSION, strict=True)
+    await guard({"type": "http", "method": "POST", "headers": []}, receive, send)
+
+    assert sent[0]["status"] == 400
+    assert json.loads(sent[1]["body"])["error"]["code"] == -32022
+
+
+def test_legacy_initialize_handshake_is_accepted_by_default(live_server) -> None:
+    """MCP-5 — dual-revision is the default, and that default is load-bearing.
+
+    `mcp-remote` — the bridge Claude Desktop and Antigravity use — opens with
+    the legacy `initialize` handshake. Refusing it means neither host can
+    connect at all, so STRICT_PROTOCOL defaults to false. Set it true only for
+    single-revision conformance work.
+    """
     response = httpx2.post(
         f"{live_server}/mcp",
         json={
@@ -105,7 +153,9 @@ def test_legacy_initialize_handshake_is_refused(live_server) -> None:
         },
         timeout=10,
     )
-    assert response.status_code >= 400
+    assert response.status_code == 200, (
+        "the legacy handshake must work out of the box or the bridged hosts break"
+    )
 
 
 def test_missing_client_capabilities_is_invalid_params(live_server) -> None:

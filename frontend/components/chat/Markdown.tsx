@@ -86,6 +86,14 @@ export function Markdown({ text }: { text: string }) {
       flush();
     }
 
+    // `---` is a horizontal rule, not a paragraph. Without this it renders as
+    // literal dashes in the middle of the answer.
+    if (/^\s*([-*_])\1{2,}\s*$/.test(line)) {
+      flush();
+      blocks.push(<hr key={`hr${blocks.length}`} className="md-hr" />);
+      continue;
+    }
+
     const h = /^(#{1,4})\s+(.*)$/.exec(line);
     const bullet = /^[-*]\s+(.*)$/.exec(line);
     const numbered = /^\d+\.\s+(.*)$/.exec(line);
