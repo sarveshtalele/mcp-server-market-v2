@@ -38,10 +38,6 @@ export default function ServersPage() {
 
   const declared = capabilities?.declared;
   const reachable = capabilities?.reachable;
-  const gatewayHidesResources =
-    !!reachable && !!declared &&
-    reachable.resources.length === 0 &&
-    declared.resources.length > 0;
 
   return (
     <>
@@ -69,16 +65,6 @@ export default function ServersPage() {
             <b>Gateway offline.</b> {capabilities.gateway_error}
           </div>
         )}
-        {gatewayHidesResources && (
-          <div className="notice">
-            <b>Gateway limitation (measured).</b> agentgateway 1.4.1 proxies tools but
-            returns empty resource, template and prompt lists, and rewrites the cache
-            hints. The server still declares them — reach them through the{" "}
-            <span className="mono">read_market_resource</span> tool, which passes
-            through the gateway and stays audited.
-          </div>
-        )}
-
         <div className="grid-2">
           <div className="panel">
             <p className="panel__title">SERVER</p>

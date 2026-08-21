@@ -4,17 +4,22 @@ import React from "react";
 
 /**
  * Tiny, dependency-free markdown renderer for streamed assistant text.
- * Handles headings, bullet/numbered lists, bold, inline code and paragraphs —
- * enough for the analyst's prose. (Rich data is shown as cards, not tables.)
+ * Handles headings, bullet/numbered lists, tables, horizontal rules, bold,
+ * italic, inline code and paragraphs — enough for the analyst's prose. Tool
+ * results are rendered separately as cards.
  */
 function inline(text: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
-  // split on **bold** and `code`
-  const regex = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  // **bold** before *italic* so the longer marker wins. Underscores are not
+  // italic markers here on purpose: the model quotes field names like
+  // net_profit_margin_pct, and treating those as emphasis mangles them.
+  const regex = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`]+`)/g;
   const parts = text.split(regex);
   parts.forEach((p, i) => {
     if (p.startsWith("**") && p.endsWith("**")) {
       nodes.push(<strong key={i}>{p.slice(2, -2)}</strong>);
+    } else if (p.length > 2 && p.startsWith("*") && p.endsWith("*")) {
+      nodes.push(<em key={i}>{p.slice(1, -1)}</em>);
     } else if (p.startsWith("`") && p.endsWith("`")) {
       nodes.push(<code key={i}>{p.slice(1, -1)}</code>);
     } else if (p) {

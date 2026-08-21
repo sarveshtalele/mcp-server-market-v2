@@ -13,7 +13,7 @@ assertions rather than adjectives. A criterion is met only when a named test ass
 | 🔍 | Verified manually; no automated assertion exists |
 | ⛔ | Deliberately out of scope, with the reason stated |
 
-**Suite at a glance** — 124 tests: 114 hermetic (the default run), 7 requiring a live gateway
+**Suite at a glance** — 133 tests: 123 hermetic (the default run), 7 requiring a live gateway
 (`-m gateway`), 3 requiring LLM credentials (`-m llm`).
 
 Companion documents: [CLAUDE.md](CLAUDE.md) · [README.md](README.md) ·
@@ -236,6 +236,20 @@ surfaces cannot drift.
 | :-- | :--- | :--- | :-- |
 | 2.1 | A conversation id travels in the W3C `baggage` key | `test_request_meta_carries_a_conversation_id` | ✅ |
 | 2.2 | That id reaches the audit log and is queryable | `test_conversation_id_is_recorded_for_our_own_client` | ✅ |
+
+### CLI-3 — Connection recovery
+
+One `Client` is shared by every web request, so its HTTP connection outlives any
+single call and is eventually closed by the peer. Nothing in the SDK re-opens
+it: before this, the first drop made every later tool call return
+`Connection closed` and the agent answered "the market data server is
+unavailable" until the backend was restarted.
+
+| # | Acceptance criterion | Test | |
+| :-- | :--- | :--- | :-- |
+| 3.1 | A call that hits a closed connection reconnects and succeeds | `test_a_closed_connection_reconnects_instead_of_failing_forever` | ✅ |
+| 3.2 | Only transport failures are retried — a failed tool is a real answer | `test_only_a_closed_transport_counts_as_a_dead_connection` | ✅ |
+| 3.3 | The SDK message the recovery path matches is pinned against upgrades | `test_the_sdk_still_words_its_dead_client_error_the_way_we_match_it` | ✅ |
 
 ### AGENT-1 — Streaming and progress
 

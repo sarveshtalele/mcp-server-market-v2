@@ -7,9 +7,16 @@ import json
 import time
 
 import pytest
+from mcp import MCPError
+from mcp.types import CONNECTION_CLOSED, INVALID_PARAMS
 
 from core.config import PROTOCOL_VERSION
-from mcp_client.session import MCPClientError, MCPToolClient, request_meta
+from mcp_client.session import (
+    MCPClientError,
+    MCPToolClient,
+    _is_dead_connection,
+    request_meta,
+)
 
 
 def test_no_lock_serialises_tool_calls() -> None:
@@ -66,6 +73,61 @@ async def test_client_talks_to_the_live_backend(live_server) -> None:
 
         prompt = await client.get_prompt("analyze-equity", {"symbol": "AAPL"})
         assert "AAPL" in prompt
+    finally:
+        await client.close()
+
+
+def test_only_a_closed_transport_counts_as_a_dead_connection() -> None:
+    """CLI-3.2 — retry the transport, never the tool.
+
+    Retrying a tool that genuinely failed would call it twice and hide the real
+    error behind a second identical one.
+    """
+    assert _is_dead_connection(MCPError(code=CONNECTION_CLOSED, message="Connection closed"))
+    assert _is_dead_connection(ConnectionResetError("peer went away"))
+    assert not _is_dead_connection(MCPError(code=INVALID_PARAMS, message="Unknown tool: nope"))
+    assert not _is_dead_connection(asyncio.CancelledError())
+    assert not _is_dead_connection(ValueError("bad json"))
+
+
+def test_the_sdk_still_words_its_dead_client_error_the_way_we_match_it() -> None:
+    """CLI-3.3 — pins an SDK message string the reconnect path depends on.
+
+    `Client` offers no "are you still usable?" API, so a client whose exit stack
+    has been unwound is recognised by the message it raises. If an SDK upgrade
+    rewords it, this fails here rather than silently restoring the bug where one
+    dropped connection broke the chat until restart.
+    """
+    from mcp import Client
+
+    with pytest.raises(RuntimeError) as excinfo:
+        _ = Client("http://127.0.0.1:9/mcp").session
+    assert _is_dead_connection(excinfo.value), str(excinfo.value)
+
+
+async def test_a_closed_connection_reconnects_instead_of_failing_forever(live_server) -> None:
+    """CLI-3.1 — one dropped connection must not break the chat until restart.
+
+    The client is long-lived and shared, so its HTTP connection outlives any one
+    call and eventually gets closed by the peer. Nothing in the SDK re-opens it:
+    before this, the first drop made every later tool call return
+    ``Connection closed``, and the agent answered "the market data server is
+    unavailable" for the rest of the process's life.
+    """
+    client = MCPToolClient(url=f"{live_server}/mcp")
+    try:
+        await client.connect()
+        assert json.loads(await client.call_tool("get_company", {"symbol": "AAPL"}))["symbol"]
+
+        # Kill the transport underneath, leaving the client cached — exactly the
+        # state an idle timeout leaves behind.
+        doomed = client._client
+        await client._stack.aclose()
+
+        payload = json.loads(await client.call_tool("get_company", {"symbol": "MSFT"}))
+        assert payload["symbol"] == "MSFT"
+        assert client._client is not doomed, "the dead client was reused"
+        assert len(client.tool_names) == 11
     finally:
         await client.close()
 

@@ -15,25 +15,63 @@ Two things changed with the 2026-07-28 revision and SDK v2:
 
 Connection is **lazy**: the gateway forwards to this same backend process, so
 connecting at startup would deadlock a cold start. The first tool call connects.
+
+It is also **self-healing**. One `Client` is shared by every web request and
+outlives any single call, so its HTTP connection eventually gets closed by the
+peer. Nothing in the SDK re-opens it, so a call that hits a closed connection
+reconnects and retries once — see `_with_reconnect`.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
-from typing import Any
+from typing import Any, TypeVar
 
-from mcp import Client, Implementation
+from mcp import Client, Implementation, MCPError
+from mcp.types import CONNECTION_CLOSED
 
 from core.config import PROTOCOL_VERSION, settings
 from core.logging_config import get_logger
 
 _log = get_logger("mcp_client")
 
+T = TypeVar("T")
+
 
 class MCPClientError(RuntimeError):
     """Raised when the MCP server cannot be reached or a call fails."""
+
+
+def _is_dead_connection(exc: BaseException) -> bool:
+    """Does this failure mean the cached client can never work again?
+
+    A ``Client`` here is long-lived and shared by every web request, so the
+    underlying HTTP connection outlives any single call. When the peer closes it
+    — an idle timeout on the gateway, a gateway restart — the SDK fails the call
+    with ``CONNECTION_CLOSED`` and stays failed: nothing re-opens it. Without
+    this check the first dropped connection breaks the chat until the backend is
+    restarted, and every answer becomes "the market data server is unavailable".
+    """
+    if isinstance(exc, KeyboardInterrupt | SystemExit | asyncio.CancelledError):
+        return False
+    while isinstance(exc, BaseExceptionGroup) and exc.exceptions:
+        exc = exc.exceptions[0]
+    if isinstance(exc, MCPError):
+        # Only the transport code. A tool that raised, or an unknown tool name,
+        # is a real answer — retrying it would just call it twice.
+        return exc.code == CONNECTION_CLOSED
+    if isinstance(exc, RuntimeError):
+        # The SDK raises this from `Client.session` once its exit stack has been
+        # unwound, which is the same dead-client state arriving by a different
+        # door. Matched on the message because the SDK offers no way to ask a
+        # Client whether it is still usable; `test_client.py` pins the string so
+        # an SDK upgrade that reworded it fails loudly instead of silently
+        # reinstating the never-recovers bug.
+        return "async context manager" in str(exc)
+    return isinstance(exc, ConnectionError | OSError)
 
 
 def _root_cause(exc: BaseException) -> str:
@@ -132,6 +170,43 @@ class MCPToolClient:
         assert self._client is not None
         return self._client
 
+    async def _discard(self, dead: Client) -> None:
+        """Drop a client whose connection is gone, so the next call re-opens one.
+
+        Guarded on identity: several tool calls run concurrently, so two of them
+        can fail on the same dead connection while a third has already replaced
+        it. Tearing down the replacement would turn one dropped connection into
+        a cascade.
+        """
+        async with self._connect_lock:
+            if self._client is not dead:
+                return
+            stack, self._stack = self._stack, None
+            self._client = None
+            self._tools = []
+        if stack is not None:
+            await _quietly_close(stack)
+
+    async def _with_reconnect(self, what: str, call: Callable[[Client], Awaitable[T]]) -> T:
+        """Run `call`, and retry it once on a fresh connection if the old one died."""
+        client = await self.ensure_connected()
+        try:
+            return await call(client)
+        except BaseException as exc:
+            if not _is_dead_connection(exc):
+                raise
+            _log.warning(
+                "MCP connection to %s is closed (%s) - reconnecting and retrying %s.",
+                self.url,
+                _root_cause(exc),
+                what,
+            )
+            await self._discard(client)
+        # Outside the handler: a failure here is about the new connection, and
+        # chaining it to the old one's error would report the wrong cause.
+        client = await self.ensure_connected()
+        return await call(client)
+
     @property
     def connected(self) -> bool:
         return self._client is not None
@@ -150,7 +225,9 @@ class MCPToolClient:
 
     async def capabilities(self) -> dict:
         """Capability surface for the UI, from one connection."""
-        client = await self.ensure_connected()
+        return await self._with_reconnect("capabilities", self._capabilities)
+
+    async def _capabilities(self, client: Client) -> dict:
         resources = await client.list_resources()
         templates = await client.list_resource_templates()
         prompts = await client.list_prompts()
@@ -200,13 +277,15 @@ class MCPToolClient:
         comes back as a single text block and no structured content. Both shapes
         are reassembled here into one JSON payload for the LLM.
         """
-        client = await self.ensure_connected()
         _log.debug("call_tool %s args=%s", name, arguments)
-        result = await client.call_tool(
-            name,
-            arguments,
-            progress_callback=progress_callback,
-            meta=request_meta(conversation_id) or None,
+        result = await self._with_reconnect(
+            f"tool {name}",
+            lambda client: client.call_tool(
+                name,
+                arguments,
+                progress_callback=progress_callback,
+                meta=request_meta(conversation_id) or None,
+            ),
         )
 
         structured = getattr(result, "structured_content", None)
@@ -230,8 +309,10 @@ class MCPToolClient:
 
     async def read_resource(self, uri: str, *, conversation_id: str | None = None) -> str:
         """Read an MCP resource and return its text payload."""
-        client = await self.ensure_connected()
-        result = await client.read_resource(uri, meta=request_meta(conversation_id) or None)
+        result = await self._with_reconnect(
+            f"resource {uri}",
+            lambda client: client.read_resource(uri, meta=request_meta(conversation_id) or None),
+        )
         parts = [
             getattr(block, "text", None)
             for block in result.contents
@@ -241,8 +322,10 @@ class MCPToolClient:
 
     async def get_prompt(self, name: str, arguments: dict[str, str] | None = None) -> str:
         """Render a server-declared prompt to text."""
-        client = await self.ensure_connected()
-        result = await client.get_prompt(name, arguments or {})
+        result = await self._with_reconnect(
+            f"prompt {name}",
+            lambda client: client.get_prompt(name, arguments or {}),
+        )
         chunks = []
         for message in result.messages:
             text = getattr(message.content, "text", None)
